@@ -1,0 +1,91 @@
+package dbms.geraltigas.dataccess.execplan.impl;
+
+import dbms.geraltigas.buffer.TableBuffer;
+import dbms.geraltigas.dataccess.DiskManager;
+import dbms.geraltigas.dataccess.execplan.ExecPlan;
+import dbms.geraltigas.exception.BlockException;
+import dbms.geraltigas.exception.DataDirException;
+import dbms.geraltigas.expression.Expression;
+import dbms.geraltigas.format.tables.TableDefine;
+import org.springframework.beans.factory.annotation.Autowired;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+
+import static dbms.geraltigas.buffer.BlockBuffer.BLOCK_SIZE;
+
+public class SelectExec implements ExecPlan {
+
+    List<Expression> expressions;
+
+    public static final int SELECT_PAGE_NUMBER = 5;
+
+    List<String> names;
+    String tableName;
+    Expression whereExpression;
+
+    @Autowired
+    TableBuffer tableBuffer;
+
+    @Autowired
+    DiskManager diskManager;
+
+    @Override
+    public String execute(String dataPath) throws BlockException, DataDirException, IOException {
+        List<String> res = new ArrayList<>();
+
+        TableDefine tableDefine = tableBuffer.getTableDefine(tableName);
+
+        int recordNum = SELECT_PAGE_NUMBER*BLOCK_SIZE/tableDefine.getRecordLength();
+
+        int index = 0;
+
+        addPrintHead(res,names);
+
+        while (true) {
+            // read the records from the disk
+
+            byte[] records = diskManager.readRecords(tableName, index, recordNum, tableDefine.getRecordLength() ,diskManager.getTableHeader(tableName));
+
+            index+=records.length/tableDefine.getRecordLength();
+
+            // judge the records is empty
+            if (records.length == 0) {
+                break;
+            }
+
+            byte[] record = new byte[tableDefine.getRecordLength()];
+
+            for (int i = 0; i < records.length; i+=tableDefine.getRecordLength()) {
+                System.arraycopy(records, i, record, 0, tableDefine.getRecordLength());
+                // judge the record is valid
+                if (record[0] == 1) {
+                    // judge the record is valid
+                    if (whereExpression != null) {
+                        whereExpression.eval(record, tableDefine, names, expressions, res);
+                    }else {
+                        Expression.nullEval(record, tableDefine, names, expressions, res);
+                    }
+                }
+            }
+        }
+
+//        byte[] data = diskManager.ReadData(dataPath, tableName);
+
+        return String.join("\n", res);
+    }
+
+    private void addPrintHead(List<String> res, List<String> names) {
+        res.add(String.join(",", names));
+    }
+
+    public SelectExec(List<Expression> expressions, List<String> names, String tableName, Expression whereExpression) {
+        this.expressions = expressions;
+        this.names = names;
+        this.tableName = tableName;
+        this.whereExpression = whereExpression;
+    }
+
+
+}
