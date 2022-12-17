@@ -4,12 +4,15 @@ import dbms.geraltigas.buffer.BlockBuffer;
 import dbms.geraltigas.exception.BlockException;
 import dbms.geraltigas.exception.DataDirException;
 import dbms.geraltigas.format.tables.TableHeader;
+import dbms.geraltigas.utils.DataDump;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.List;
+import java.util.Set;
 
 @Component
 public class DiskManager {
@@ -18,7 +21,6 @@ public class DiskManager {
     BlockBuffer blockBuffer;
     @Autowired
     ExecList execList;
-
 
     public TableHeader getTableHeader(String tableName) throws BlockException, DataDirException, IOException {
         byte[] header = readBytesAt(tableName,AccessType.TABLE ,null,0, TableHeader.TABLE_HEADER_LENGTH);

@@ -80,7 +80,8 @@ public class BlockBuffer {
      private int getHashCode(String tableName, DiskManager.AccessType type, String appendPath, int blockId) {
         int hashCode = switch (type) {
             case TABLE -> (tableName.hashCode() + blockId) % BLOCK_COUNT;
-            case INDEX, BULK -> (tableName.hashCode() + type.toString().hashCode() + appendPath.hashCode() + blockId) % BLOCK_COUNT;
+            case INDEX -> (tableName.hashCode() + type.toString().hashCode() + appendPath.hashCode() + blockId) % BLOCK_COUNT;
+            case BULK -> (tableName.hashCode() + type.toString().hashCode() + blockId) % BLOCK_COUNT;
         };
         if (hashCode < 0) {
             hashCode += BLOCK_COUNT;
