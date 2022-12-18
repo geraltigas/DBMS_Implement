@@ -130,7 +130,8 @@ public class Worker {
             case "Insert":
                 return insertExec((Insert) statement);
             case "Update":
-                return updateExec((Update) statement);
+                return "Unimplemented Update";
+                // return updateExec((Update) statement);
             case "CreateIndex":
                 return createIndexExec((CreateIndex) statement);
             default:

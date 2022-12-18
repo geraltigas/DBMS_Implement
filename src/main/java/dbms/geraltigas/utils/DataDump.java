@@ -10,8 +10,7 @@ import java.util.List;
 public class DataDump {
 
     public static byte[] IntToBytes(int value) {
-        byte[] bytes = ByteBuffer.allocate(4).putInt(value).array();
-        return bytes;
+        return ByteBuffer.allocate(4).putInt(value).array();
     }
 
     public static int BytesToInt(byte[] src, int offset) {

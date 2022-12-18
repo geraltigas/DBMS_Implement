@@ -1,5 +1,6 @@
 package dbms.geraltigas.format.tables;
 
+import dbms.geraltigas.bean.ApplicationContextUtils;
 import dbms.geraltigas.buffer.BlockBuffer;
 import dbms.geraltigas.dataccess.DiskManager;
 import dbms.geraltigas.exception.BlockException;
@@ -44,33 +45,22 @@ public class Bulk {
 
     public void flush() throws BlockException, DataDirException, IOException {
         int bulkNum = bulkContent.size();
-        int pageNum = (bulkNum+1)/1024+1;
-        List<BlockBuffer.Page> pages = diskManager.readBulkPages(tableName);
-        for (int i = pages.size(); i < pageNum; i++) {
-
+        byte[] bulkData = new byte[bulkNum * 4+4];
+        diskManager.writeBytesAt(tableName, DiskManager.AccessType.BULK,null,DataDump.IntToBytes(bulkNum),0);
+        int temp = bulkNum*4+4;
+        for (int i = 4; i < temp; i+=4) {
+            diskManager.writeBytesAt(tableName, DiskManager.AccessType.BULK,null,DataDump.IntToBytes(bulkContent.iterator().next()),i);
         }
-        diskManager.writeBulkPage(tableName, pages);
     }
 
     public void initBulk() throws BlockException, IOException, DataDirException {
+        ApplicationContextUtils.autowire(this);
         byte[] firstPageData = diskManager.readBytesAt(tableName, DiskManager.AccessType.BULK, null, 0, 4096);
         bulkNum = DataDump.BytesToInt(firstPageData, 0);
-
-        for (int i = 0; i < bulkNum; i++) {
-            int pageId = i/1024;
-            int pageOffset = i%1024;
-            int pageOffsetByte = pageOffset*4;
-            int pageOffsetByteEnd = pageOffsetByte+4;
-            int pageOffsetByteEndIndex = pageOffsetByteEnd/BlockBuffer.BLOCK_SIZE;
-            int pageOffsetByteEndOffset = pageOffsetByteEnd%BlockBuffer.BLOCK_SIZE;
-            if (pageOffsetByteEndIndex == 0) {
-                bulkContent.add(DataDump.BytesToInt(pages.get(pageId).data,pageOffsetByte));
-            } else {
-                byte[] bytes = new byte[4];
-                System.arraycopy(pages.get(pageId).data,pageOffsetByte,bytes,0,BlockBuffer.BLOCK_SIZE-pageOffsetByte);
-                System.arraycopy(pages.get(pageId+1).data,0,bytes,BlockBuffer.BLOCK_SIZE-pageOffsetByte,pageOffsetByteEndOffset);
-                bulkContent.add(DataDump.BytesToInt(bytes,0));
-            }
+        byte[] bulkData = diskManager.readBytesAt(tableName, DiskManager.AccessType.BULK, null, 4, bulkNum*4);
+        int temp = bulkNum*4+4;
+        for (int i = 4; i < temp; i+=4) {
+            bulkContent.add(DataDump.BytesToInt(bulkData, 0));
         }
     }
 }

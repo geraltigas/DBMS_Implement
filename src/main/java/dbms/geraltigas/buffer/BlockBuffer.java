@@ -127,7 +127,6 @@ public class BlockBuffer {
             default -> throw new BlockException("Invalid access type");
         }
         File file = path.toFile();
-        System.out.println(file.length());
         RandomAccessFile randomAccessFile = new RandomAccessFile(file, "r");
         randomAccessFile.seek(fromOffset);
         byte[] data = new byte[BLOCK_SIZE];

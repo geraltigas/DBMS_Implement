@@ -33,7 +33,6 @@ public class CreateTableHandler implements Handler {
         CreateTableExec execPlan = new CreateTableExec(tableName, colNames, colTypes, colAttrs);
         ApplicationContextUtils.autowire(execPlan);
         execList.addExecPlan(execPlan);
-        System.out.println("CreateTableHandler hash: " + execPlan.hashCode());
         return execPlan.hashCode();
     }
 

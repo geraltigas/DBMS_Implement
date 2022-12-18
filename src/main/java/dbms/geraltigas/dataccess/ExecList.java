@@ -57,12 +57,10 @@ public class ExecList {
         executorService.submit(() -> {
             while (true) {
                 if (execPlans.size() > 0) {
-                    System.out.println("DataAccesser found a task");
                     ExecPlan execPlan = execPlans.poll();
                     assert execPlan != null;
                     String res = execPlan.execute(dataPath);
                     results.put(execPlan.hashCode(), res);
-                    System.out.println("Hash: " + execPlan.hashCode());
                 }
             }
         });

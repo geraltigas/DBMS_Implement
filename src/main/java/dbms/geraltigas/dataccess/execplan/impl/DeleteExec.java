@@ -8,6 +8,7 @@ import dbms.geraltigas.exception.DataDirException;
 import dbms.geraltigas.exception.DataTypeException;
 import dbms.geraltigas.exception.FieldNotFoundException;
 import dbms.geraltigas.expression.Expression;
+import dbms.geraltigas.format.tables.Bulk;
 import dbms.geraltigas.format.tables.TableDefine;
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -37,17 +38,23 @@ public class DeleteExec implements ExecPlan { // TODO: implement this
         int recordNum = SelectExec.SELECT_PAGE_NUMBER*BLOCK_SIZE/tableDefine.getRecordLength();
         int index = 0;
 
+        Bulk bulk = tableBuffer.getTableBulk(tableName);
+        bulk.initBulk();
+
         int deleteNum = 0;
+        int indexCount = 0;
 
         while (true) {
             byte[] records = diskManager.readRecords(tableName, index, recordNum, tableDefine.getRecordLength() ,diskManager.getTableHeader(tableName));
             index+=records.length/tableDefine.getRecordLength();
             if (records.length == 0) {
+                bulk.flush();
                 break;
             }
             byte[] record = new byte[tableDefine.getRecordLength()];
 
             for (int i = 0; i < records.length; i+=tableDefine.getRecordLength()) {
+                indexCount++;
                 System.arraycopy(records, i, record, 0, tableDefine.getRecordLength());
                 // judge the record is valid
                 if (record[0] == 1) {
@@ -56,12 +63,16 @@ public class DeleteExec implements ExecPlan { // TODO: implement this
                         if (whereExpression.evalNoAlias(record, tableDefine)) {
                             record[0] = 0;
                             deleteNum++;
+                            bulk.addBulk(indexCount);
                             diskManager.writeRecord(tableName, i/tableDefine.getRecordLength(), record, tableDefine.getRecordLength(), diskManager.getTableHeader(tableName));
+                            indexCount++;
                         }
                     }else {
                         record[0] = 0;
                         deleteNum++;
+                        bulk.addBulk(indexCount);
                         diskManager.writeRecord(tableName, i/tableDefine.getRecordLength(), record, tableDefine.getRecordLength(), diskManager.getTableHeader(tableName));
+                        indexCount++;
                     }
                 }
             }
