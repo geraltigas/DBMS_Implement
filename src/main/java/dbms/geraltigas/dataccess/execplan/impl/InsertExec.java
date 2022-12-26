@@ -8,6 +8,7 @@ import dbms.geraltigas.exception.BlockException;
 import dbms.geraltigas.exception.DataDirException;
 import dbms.geraltigas.exception.DataTypeException;
 import dbms.geraltigas.exception.FieldNotFoundException;
+import dbms.geraltigas.format.tables.PageHeader;
 import dbms.geraltigas.format.tables.TableDefine;
 import dbms.geraltigas.format.tables.TableHeader;
 import dbms.geraltigas.utils.DataDump;
@@ -15,6 +16,7 @@ import net.sf.jsqlparser.expression.Expression;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
@@ -77,17 +79,78 @@ public class InsertExec implements ExecPlan {
         return insertRecords(records,tableDefine.getColTypes(),tableDefine.getColAttrs());
     }
 
-    private String insertRecords(List<List<Object>> records, List<TableDefine.Type> colTypes, List<List<String>> colAttrs) throws BlockException, IOException, DataDirException, DataTypeException {
+    private String insertRecords(List<List<Object>> records, List<TableDefine.Type> colTypes, List<List<String>> colAttrs) throws BlockException, IOException, DataDirException, DataTypeException { // TODO: need massive test
         TableHeader tableHeader = diskManager.getTableHeader(tableName);
-        int offset = tableHeader.getEndOffset();
         int per_size = CalculateLength(colTypes,colAttrs);
         int writeSize = per_size * records.size();
         byte[] data = new byte[writeSize];
         DataDump.DumpSrc(data,per_size,colTypes,records);
-        diskManager.writeBytesAt(tableName, DiskManager.AccessType.TABLE,null,data, offset);
-        tableHeader.setEndOffset(tableHeader.getEndOffset()+ writeSize);
-        tableHeader.setTableLength((offset + writeSize) / BlockBuffer.BLOCK_SIZE + 1);
-        diskManager.setTableHeader(tableName,tableHeader);
+        if (tableHeader.getTableLength() == 0) {
+            int pageNum = records.size()*per_size/(BlockBuffer.BLOCK_SIZE - PageHeader.PAGE_HEADER_LENGTH);
+            if (records.size()*per_size%(BlockBuffer.BLOCK_SIZE - PageHeader.PAGE_HEADER_LENGTH) != 0) {
+                pageNum++;
+            }
+            int recordPerBlock = (BlockBuffer.BLOCK_SIZE - PageHeader.PAGE_HEADER_LENGTH)/per_size;
+            List<PageHeader> tableHeaders = new ArrayList<>(pageNum);
+            for (int i = 0; i < pageNum; i++) {
+                tableHeaders.add(new PageHeader());
+            }
+            for (int i = 0; i < pageNum; i++) {
+                PageHeader pageHeader = tableHeaders.get(i);
+                if (i == pageNum - 1) {
+                    pageHeader.setRecordLength(per_size);
+                    pageHeader.setRecordNum(records.size()- recordPerBlock*i);
+                    pageHeader.setLastRecordOffset(4096 - per_size*(records.size()- recordPerBlock*i));
+                } else {
+                    pageHeader.setRecordLength(per_size);
+                    pageHeader.setRecordNum(recordPerBlock);
+                    pageHeader.setLastRecordOffset(4096 - per_size*recordPerBlock);
+                }
+                byte[] dataT = new byte[pageHeader.getRecordNum()*pageHeader.getRecordLength()];
+                System.arraycopy(data,per_size*recordPerBlock*i,dataT,0,dataT.length);
+                diskManager.writePage(tableName,i+1,0,tableHeaders.get(i).ToBytes());
+                diskManager.writePage(tableName,i+1,pageHeader.getLastRecordOffset(),dataT);
+            }
+            tableHeader.setTableLength(pageNum);
+            diskManager.setTableHeader(tableName,tableHeader);
+        }else {
+            int pageNum = tableHeader.getTableLength();
+            byte[] pageHeaderBytes = diskManager.readBytesAt(tableName, DiskManager.AccessType.TABLE, null, (long) (pageNum)*BlockBuffer.BLOCK_SIZE, PageHeader.PAGE_HEADER_LENGTH);
+            PageHeader pageHeader = new PageHeader(pageHeaderBytes);
+            int recordPerBlock = (BlockBuffer.BLOCK_SIZE - PageHeader.PAGE_HEADER_LENGTH)/per_size;
+            int firstPageRecordNum = pageHeader.getRecordNum();
+            byte[] dataT = new byte[(records.size() > recordPerBlock - firstPageRecordNum ? recordPerBlock - firstPageRecordNum : records.size())*per_size];
+            System.arraycopy(data,0,dataT,0,dataT.length);
+            pageHeader.setRecordNum(records.size() > recordPerBlock - firstPageRecordNum ?recordPerBlock : records.size()+firstPageRecordNum);
+            pageHeader.setLastRecordOffset(pageHeader.getLastRecordOffset() - dataT.length);
+            diskManager.writePage(tableName,pageNum,pageHeader.getLastRecordOffset(),dataT);
+            diskManager.writePage(tableName,pageNum,0,pageHeader.ToBytes());
+            if (records.size() > firstPageRecordNum) {
+                int recordNum = records.size() - firstPageRecordNum;
+                int pageNumT = recordNum/recordPerBlock;
+                if (recordNum%recordPerBlock != 0) {
+                    pageNumT++;
+                }
+                for (int i = 0; i < pageNumT; i++) {
+                    PageHeader pageHeaderT = new PageHeader();
+                    if (i == pageNumT - 1) {
+                        pageHeaderT.setRecordLength(per_size);
+                        pageHeaderT.setRecordNum(recordNum - recordPerBlock*i);
+                        pageHeaderT.setLastRecordOffset(4096 - per_size*(recordNum - recordPerBlock*i));
+                    } else {
+                        pageHeaderT.setRecordLength(per_size);
+                        pageHeaderT.setRecordNum(recordPerBlock);
+                        pageHeaderT.setLastRecordOffset(4096 - per_size*recordPerBlock);
+                    }
+                    byte[] dataTT = new byte[pageHeaderT.getRecordNum()*pageHeaderT.getRecordLength()];
+                    System.arraycopy(data,per_size*recordPerBlock*i+firstPageRecordNum*per_size,dataTT,0,dataTT.length);
+                    diskManager.writePage(tableName,pageNum+i,0,pageHeaderT.ToBytes());
+                    diskManager.writePage(tableName,pageNum+i,pageHeaderT.getLastRecordOffset(),dataTT);
+                }
+                tableHeader.setTableLength(pageNum+pageNumT);
+            }
+        }
+
         return "Table " + tableName + " insert " + records.size() + " records";
     }
 

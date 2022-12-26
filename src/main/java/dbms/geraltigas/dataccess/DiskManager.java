@@ -3,6 +3,7 @@ package dbms.geraltigas.dataccess;
 import dbms.geraltigas.buffer.BlockBuffer;
 import dbms.geraltigas.exception.BlockException;
 import dbms.geraltigas.exception.DataDirException;
+import dbms.geraltigas.format.tables.PageHeader;
 import dbms.geraltigas.format.tables.TableHeader;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -36,6 +37,14 @@ public class DiskManager {
         BULK
     }
 
+    public byte[] readPage(String tableName, int index) throws BlockException, DataDirException, IOException {
+        return readBytesAt(tableName, AccessType.TABLE, null, index * BlockBuffer.BLOCK_SIZE, BlockBuffer.BLOCK_SIZE);
+    }
+
+    public void writePage(String tableName, int index,int offset, byte[] data) throws BlockException, IOException {
+        writeBytesAt(tableName, AccessType.TABLE, null, data, index * BlockBuffer.BLOCK_SIZE + offset);
+    }
+
     public byte[] readBytesAt(String tableName, AccessType type, String appendPath, long offset, int length) throws IOException, DataDirException, BlockException { // using page buffer to read byte array include header
         File file = new File(execList.getDateDir() + "/tables/" + tableName+".tbl");
         if (!file.exists()) {
@@ -43,7 +52,7 @@ public class DiskManager {
         }
         int blockId = (int) (offset / BlockBuffer.BLOCK_SIZE);
         int blockOffset = (int) (offset % BlockBuffer.BLOCK_SIZE);
-        int blockEnd = blockOffset + length;
+        int blockEnd = (int) (offset + length);
         int blockEndIndex = blockEnd / BlockBuffer.BLOCK_SIZE;
         int blockEndOffset = blockEnd % BlockBuffer.BLOCK_SIZE;
         byte[] data = new byte[length];
@@ -104,15 +113,20 @@ public class DiskManager {
         }
     }
 
-    public byte[] readRecords(String tableName, int index, int recordNum, int recardLength, TableHeader tableHeader) throws BlockException, DataDirException, IOException {
-        long offset = tableHeader.getHeaderLength() + (long) index * recardLength;
-        long maxEndOffset = offset + (long) recordNum * recardLength;
-        int length = Math.min((int) (maxEndOffset - offset),(int) (tableHeader.getEndOffset() - offset));
-        return readBytesAt(tableName,AccessType.TABLE,null, offset, length);
+    public byte[] readRecords(String tableName,int pageIndex) throws BlockException, DataDirException, IOException { // TODO: fix here
+        byte[] pageData = readPage(tableName, pageIndex);
+        PageHeader pageHeader = new PageHeader(pageData);
+        int lastRecordOffset = pageHeader.getLastRecordOffset();
+        byte[] records = new byte[pageHeader.getRecordNum() * pageHeader.getRecordLength()];
+        System.arraycopy(pageData, lastRecordOffset, records, 0, records.length);
+        //        long offset = tableHeader.getHeaderLength() + (long) index * recardLength;
+//        long maxEndOffset = offset + (long) recordNum * recardLength;
+//        int length = Math.min((int) (maxEndOffset - offset),(int) (tableHeader.getEndOffset() - offset));
+        return records;
     }
 
-    public void writeRecord(String tableName, int index, byte[] record, int recordLength, TableHeader getTableHeader) {
-        long offset = getTableHeader.getHeaderLength() + (long) index * recordLength;
+    public void writeRecord(String tableName,int pageIndex, int index, byte[] record, int recordLength,PageHeader pageHeader) {
+        long offset = (long) (pageIndex) * BlockBuffer.BLOCK_SIZE + (long) index * recordLength + pageHeader.getLastRecordOffset();
         try {
             writeBytesAt(tableName,AccessType.TABLE,null, record, offset);
         } catch (BlockException | IOException e) {

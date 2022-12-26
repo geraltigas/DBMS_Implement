@@ -43,10 +43,12 @@ public class SelectExec implements ExecPlan {
 
         addPrintHead(res,names);
 
-        while (true) {
+        int j = diskManager.getTableHeader(tableName).getTableLength();
+
+        for (int i = 0; i < j; i++) {
             // read the records from the disk
 
-            byte[] records = diskManager.readRecords(tableName, index, recordNum, tableDefine.getRecordLength() ,diskManager.getTableHeader(tableName));
+            byte[] records = diskManager.readRecords(tableName, i+1);
 
             index+=records.length/tableDefine.getRecordLength();
 
@@ -57,8 +59,8 @@ public class SelectExec implements ExecPlan {
 
             byte[] record = new byte[tableDefine.getRecordLength()];
 
-            for (int i = 0; i < records.length; i+=tableDefine.getRecordLength()) {
-                System.arraycopy(records, i, record, 0, tableDefine.getRecordLength());
+            for (int k = 0; k < records.length; k+=tableDefine.getRecordLength()) {
+                System.arraycopy(records, k, record, 0, tableDefine.getRecordLength());
                 // judge the record is valid
                 if (record[0] == 1) {
                     // judge the record is valid

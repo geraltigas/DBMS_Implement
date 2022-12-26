@@ -9,7 +9,9 @@ import dbms.geraltigas.exception.DataTypeException;
 import dbms.geraltigas.exception.FieldNotFoundException;
 import dbms.geraltigas.expression.Expression;
 import dbms.geraltigas.format.tables.Bulk;
+import dbms.geraltigas.format.tables.PageHeader;
 import dbms.geraltigas.format.tables.TableDefine;
+import dbms.geraltigas.format.tables.TableHeader;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import java.io.IOException;
@@ -36,26 +38,22 @@ public class DeleteExec implements ExecPlan { // TODO: implement this
         TableDefine tableDefine = tableBuffer.getTableDefine(tableName);
 
         int recordNum = SelectExec.SELECT_PAGE_NUMBER*BLOCK_SIZE/tableDefine.getRecordLength();
-        int index = 0;
-
-        Bulk bulk = tableBuffer.getTableBulk(tableName);
-        bulk.initBulk();
-
+        TableHeader tableHeader = new TableHeader(diskManager.readPage(tableName, 0));
+        int tableLength = tableHeader.getTableLength();
         int deleteNum = 0;
-        int indexCount = 0;
 
-        while (true) {
-            byte[] records = diskManager.readRecords(tableName, index, recordNum, tableDefine.getRecordLength() ,diskManager.getTableHeader(tableName));
-            index+=records.length/tableDefine.getRecordLength();
+        for (int index = 0; index < tableLength; index++) {
+            byte[] records = diskManager.readRecords(tableName, index+1);
+            byte[] pageData = diskManager.readPage(tableName, index+1);
+            PageHeader pageHeader = new PageHeader(pageData);
             if (records.length == 0) {
-                bulk.flush();
                 break;
             }
             byte[] record = new byte[tableDefine.getRecordLength()];
+            int delTemp = 0;
+            for (int i = 0; i < records.length/tableDefine.getRecordLength(); i+=1) {
 
-            for (int i = 0; i < records.length; i+=tableDefine.getRecordLength()) {
-                indexCount++;
-                System.arraycopy(records, i, record, 0, tableDefine.getRecordLength());
+                System.arraycopy(records, i*tableDefine.getRecordLength(), record, 0, tableDefine.getRecordLength());
                 // judge the record is valid
                 if (record[0] == 1) {
                     // judge the record is valid
@@ -63,16 +61,14 @@ public class DeleteExec implements ExecPlan { // TODO: implement this
                         if (whereExpression.evalNoAlias(record, tableDefine)) {
                             record[0] = 0;
                             deleteNum++;
-                            bulk.addBulk(indexCount);
-                            diskManager.writeRecord(tableName, i/tableDefine.getRecordLength(), record, tableDefine.getRecordLength(), diskManager.getTableHeader(tableName));
-                            indexCount++;
+                            delTemp++;
+                            diskManager.writeRecord(tableName,index+1,i,record,tableDefine.getRecordLength(),pageHeader);
                         }
                     }else {
                         record[0] = 0;
                         deleteNum++;
-                        bulk.addBulk(indexCount);
-                        diskManager.writeRecord(tableName, i/tableDefine.getRecordLength(), record, tableDefine.getRecordLength(), diskManager.getTableHeader(tableName));
-                        indexCount++;
+                        delTemp++;
+                        diskManager.writeRecord(tableName,index+1,i,record,tableDefine.getRecordLength(),pageHeader);
                     }
                 }
             }
