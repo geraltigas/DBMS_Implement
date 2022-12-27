@@ -6,6 +6,7 @@ import dbms.geraltigas.exception.ExpressionException;
 import dbms.geraltigas.exception.HandleException;
 import dbms.geraltigas.exec.worker.handler.Handler;
 import dbms.geraltigas.exec.worker.handler.HandlerFactory;
+import dbms.geraltigas.exec.worker.handler.impl.ShowHandler;
 import net.sf.jsqlparser.JSQLParserException;
 import net.sf.jsqlparser.parser.CCJSqlParserUtil;
 import net.sf.jsqlparser.statement.Statement;
@@ -19,15 +20,70 @@ import net.sf.jsqlparser.statement.update.Update;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.net.Socket;
+import java.net.SocketException;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 
-@Component
-public class Worker {
+public class Worker implements Runnable {
+    @Override
+    public void run() {
+        System.out.println("["+threadId+"] "+"Worker started");
+        InputStream inputStream;
+        OutputStream outputStream;
+        try {
+            inputStream = socket.getInputStream();
+            outputStream = socket.getOutputStream();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+
+        BufferedReader reader = new BufferedReader(new java.io.InputStreamReader(inputStream));
+        String line;
+        try {
+            outputStream.write("OK".getBytes());
+            outputStream.write("[Server] Welcome to Geraltigas DBMS!".getBytes());
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+        try {
+            while (true) {
+                socket.sendUrgentData(0xFF);
+
+                while ((line = reader.readLine()) != null) {
+                    System.out.println("["+threadId+"] "+"Received: " + line);
+                    String res = doWork(line)+"\n";
+                    outputStream.write(res.getBytes());
+                }
+            }
+        } catch (IOException e) {
+            System.out.println("["+threadId+"] "+"Client disconnected");
+            try {
+                socket.close();
+                System.out.println("["+threadId+"] "+"Socket closed");
+                return;
+            } catch (IOException ex) {
+                throw new RuntimeException(ex);
+            }
+        }
+        catch ( JSQLParserException | HandleException | ExecutionException | InterruptedException e) {
+            e.printStackTrace();
+        } catch (DataTypeException | DropTypeException | ExpressionException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public void setThreadId(long threadId) {
+        this.threadId = threadId;
+    }
+
     public enum State { IDLE, CONNECTED, AUTHENTICATED, }
 
     @Autowired
@@ -38,12 +94,20 @@ public class Worker {
     private State state = State.IDLE;
     private Socket socket;
 
+    private long threadId;
+
     private Boolean inTransaction = false;
 
     private Handler handler;
 
     // public
-    public Worker() {}
+    public Worker(Socket socket) {
+        this.socket = socket;
+        this.state = State.CONNECTED;
+    }
+
+    public Worker() {
+    }
 
     public String doWork(String input) throws JSQLParserException, HandleException, ExecutionException, InterruptedException, DataTypeException, DropTypeException, ExpressionException {
         switch (state) {
@@ -56,11 +120,6 @@ public class Worker {
             default:
                 return "UNKNOWN";
         }
-    }
-
-    public void setSocket(Socket socket) {
-        this.socket = socket;
-        this.state = State.CONNECTED;
     }
 
     public void printState() {
@@ -79,8 +138,28 @@ public class Worker {
     }
 
     private String connectedProcess(String input) {
-        this.state = State.AUTHENTICATED;
-        return "AUTH" + input;
+        if (input.contains("AUTH")) {
+            String[] tokens = input.split(" ");
+            if (tokens.length != 3) {
+                return "Invalid AUTH command";
+            }
+            String username = tokens[1];
+            String password = tokens[2];
+            if (username.equals("root") && password.equals("root")) {
+                this.state = State.AUTHENTICATED;
+                workerPrint("AUTH OK: " + username);
+                return "AUTH OK: root";
+            }if (username.contains("user") && username.equals(password)) {
+                this.state = State.AUTHENTICATED;
+                workerPrint("AUTH OK: " + username);
+                return "AUTH OK: " + username;
+            } else {
+                return "AUTH FAIL";
+            }
+        }
+        else {
+            return "Please login first: AUTH username password";
+        }
     }
 
     public String authenticatedProcess(String input) throws HandleException, ExecutionException, InterruptedException, DataTypeException, DropTypeException, ExpressionException {
@@ -101,20 +180,29 @@ public class Worker {
             }else if ("ROLLBACK".equalsIgnoreCase(statement.trim())) {
                 this.inTransaction = false;
                 rollbackExec();
-            }else{
+            }else if (statement.toUpperCase().contains("SHOW")) {
+                res.add(showExec(statement));
+            }
+            else{
                 try {
                     Statement stmt = CCJSqlParserUtil.parse(statement);
                     String temp = routeExec(stmt);
-                    System.out.println(temp);
                     res.add(temp);
                 } catch (JSQLParserException e) {
                     System.out.println("Sql Syntax Error: " + e.getMessage());
-                    throw new RuntimeException(e);
+                    return "Sql Syntax Error";
                 }
             }
         }
 
         return String.join(";\n", res);
+    }
+
+    private String showExec(String statement) throws HandleException, DataTypeException, DropTypeException, ExpressionException, ExecutionException, InterruptedException {
+        ShowHandler handler = (ShowHandler) handlerFactory.getHandler(HandlerFactory.HandlerType.SHOW);
+        handler.setThreadId(threadId);
+        this.handler = handler;
+        return waitForResult(handler.handleShow(statement));
     }
 
     private String routeExec(Statement statement) throws HandleException, ExecutionException, InterruptedException, DataTypeException, DropTypeException, ExpressionException {
@@ -130,7 +218,7 @@ public class Worker {
             case "Insert":
                 return insertExec((Insert) statement);
             case "Update":
-                return "Unimplemented Update";
+                return "Unimplemented";
                 // return updateExec((Update) statement);
             case "CreateIndex":
                 return createIndexExec((CreateIndex) statement);
@@ -150,36 +238,43 @@ public class Worker {
 
     private String createIndexExec(CreateIndex statement) throws HandleException, ExecutionException, InterruptedException, DataTypeException, DropTypeException, ExpressionException { //TODO: Create Index
         handler = handlerFactory.getHandler(HandlerFactory.HandlerType.CREATE_INDEX);
+        handler.setThreadId(threadId);
         return waitForResult(handler.handle(statement));
     }
 
     private String updateExec(Update statement) throws HandleException, ExecutionException, InterruptedException, DataTypeException, DropTypeException, ExpressionException { //TODO: Update
         handler = handlerFactory.getHandler(HandlerFactory.HandlerType.UPDATE);
+        handler.setThreadId(threadId);
         return waitForResult(handler.handle(statement));
     }
 
     private String insertExec(Insert statement) throws HandleException, ExecutionException, InterruptedException, DataTypeException, DropTypeException, ExpressionException { //TODO: Insert
         handler = handlerFactory.getHandler(HandlerFactory.HandlerType.INSERT);
+        handler.setThreadId(threadId);
         return waitForResult(handler.handle(statement));
     }
 
     private String dropExec(Drop statement) throws HandleException, ExecutionException, InterruptedException, DataTypeException, DropTypeException, ExpressionException { //TODO: Drop
         handler = handlerFactory.getHandler(HandlerFactory.HandlerType.DROP);
+        handler.setThreadId(threadId);
         return waitForResult(handler.handle(statement));
     }
 
     private String createTableExec(CreateTable statement) throws HandleException, ExecutionException, InterruptedException, DataTypeException, DropTypeException, ExpressionException { //TODO: Create Table
         handler = handlerFactory.getHandler(HandlerFactory.HandlerType.CREATE_TABLE);
+        handler.setThreadId(threadId);
         return waitForResult(handler.handle(statement));
     }
 
     private String deleteExec(Delete statement) throws HandleException, ExecutionException, InterruptedException, DataTypeException, DropTypeException, ExpressionException { //TODO: Delete
         handler = handlerFactory.getHandler(HandlerFactory.HandlerType.DELETE);
+        handler.setThreadId(threadId);
         return waitForResult(handler.handle(statement));
     }
 
     private String selectExec(Select statement) throws HandleException, ExecutionException, InterruptedException, DataTypeException, DropTypeException, ExpressionException { //TODO: Select
         handler = handlerFactory.getHandler(HandlerFactory.HandlerType.SELECT);
+        handler.setThreadId(threadId);
         return waitForResult(handler.handle(statement));
     }
 
@@ -195,5 +290,9 @@ public class Worker {
             }
         });
         return future.get();
+    }
+
+    private void workerPrint(String str) {
+        System.out.println("["+threadId+"] "+str);
     }
 }

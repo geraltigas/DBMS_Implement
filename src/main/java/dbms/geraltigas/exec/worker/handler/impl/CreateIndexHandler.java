@@ -9,6 +9,7 @@ import net.sf.jsqlparser.statement.create.index.CreateIndex;
 
 public class CreateIndexHandler implements Handler {
     ExecList execList;
+    long threadId = 0;
 
     @Override
     public void setDataAccesser(ExecList execList) {
@@ -25,6 +26,7 @@ public class CreateIndexHandler implements Handler {
         }
         String columnName = createIndex.getIndex().getColumnsNames().get(0);
         CreateIndexExec createIndexExec = new CreateIndexExec(indexName, tableName, columnName);
+        createIndexExec.setThreadId(threadId);
         execList.addExecPlan(createIndexExec);
         return createIndexExec.hashCode();
     }
@@ -32,6 +34,11 @@ public class CreateIndexHandler implements Handler {
     @Override
     public String getResault(int hash) {
         return execList.getResault(hash);
+    }
+
+    @Override
+    public void setThreadId(long threadId) {
+        this.threadId = threadId;
     }
 }
 

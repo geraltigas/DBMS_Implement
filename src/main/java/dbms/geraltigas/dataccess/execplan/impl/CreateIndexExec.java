@@ -13,6 +13,8 @@ public class CreateIndexExec implements ExecPlan { // TODO: implement this
     String tableName;
     String columnName;
 
+    private long threadId;
+
     public CreateIndexExec(String indexName, String tableName, String columnName) {
         this.indexName = indexName;
         this.tableName = tableName;
@@ -50,5 +52,9 @@ public class CreateIndexExec implements ExecPlan { // TODO: implement this
 
 
         return "Create index " + indexName + " on " + tableName+"."+columnName+ " success";
+    }
+
+    public void setThreadId(long threadId) {
+        this.threadId = threadId;
     }
 }

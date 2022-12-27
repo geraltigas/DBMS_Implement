@@ -14,10 +14,16 @@ import java.util.List;
 public class CreateTableHandler implements Handler {
 
     ExecList execList;
+    long threadId = 0;
 
     @Override
     public void setDataAccesser(ExecList execList) {
         this.execList = execList;
+    }
+
+    @Override
+    public void setThreadId(long threadId) {
+        this.threadId = threadId;
     }
 
     public CreateTableHandler() {
@@ -32,6 +38,7 @@ public class CreateTableHandler implements Handler {
         List<String>[] colAttrs = createTable.getColumnDefinitions().stream().map(col -> col.getColDataType().getArgumentsStringList()).toArray(List[]::new);
         CreateTableExec execPlan = new CreateTableExec(tableName, colNames, colTypes, colAttrs);
         ApplicationContextUtils.autowire(execPlan);
+        execPlan.setThreadId(threadId);
         execList.addExecPlan(execPlan);
         return execPlan.hashCode();
     }

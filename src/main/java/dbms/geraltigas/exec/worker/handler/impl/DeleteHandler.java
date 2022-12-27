@@ -11,6 +11,8 @@ import net.sf.jsqlparser.statement.delete.Delete;
 
 public class DeleteHandler implements Handler {
 
+    long threadId = 0;
+
     ExecList execList;
     public DeleteHandler() {
 
@@ -22,6 +24,11 @@ public class DeleteHandler implements Handler {
     }
 
     @Override
+    public void setThreadId(long threadId) {
+        this.threadId = threadId;
+    }
+
+    @Override
     public int handle(Statement query) throws ExpressionException { // TODO: handle DELETE
         Delete delete = (Delete) query;
         String tableName = delete.getTable().getName();
@@ -29,6 +36,7 @@ public class DeleteHandler implements Handler {
         dbms.geraltigas.expression.Expression whereExpression = SelectHandler.parseExpression(where);
         DeleteExec execPlan = new DeleteExec(tableName,whereExpression);
         ApplicationContextUtils.autowire(execPlan);
+        execPlan.setThreadId(threadId);
         execList.addExecPlan(execPlan);
         return execPlan.hashCode();
     }

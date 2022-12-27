@@ -10,6 +10,11 @@ import java.io.IOException;
 
 public class UpdateExec implements ExecPlan { // TODO: implement this
     @Override
+    public void setThreadId(long threadId) {
+
+    }
+
+    @Override
     public String execute(String dataPath) throws IOException, DataTypeException, FieldNotFoundException, BlockException, DataDirException {
         return null;
     }

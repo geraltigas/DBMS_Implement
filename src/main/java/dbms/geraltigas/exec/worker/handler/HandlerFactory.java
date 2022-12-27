@@ -19,6 +19,7 @@ public class HandlerFactory {
         UPDATE,
         DELETE,
         DROP,
+        SHOW
     }
 
     public Handler getHandler(HandlerType type) {
@@ -58,6 +59,11 @@ public class HandlerFactory {
                 dropHandler.setDataAccesser(execList);
                 ApplicationContextUtils.autowire(dropHandler);
                 return dropHandler;
+            case SHOW:
+                ShowHandler showHandler = new ShowHandler();
+                showHandler.setDataAccesser(execList);
+                ApplicationContextUtils.autowire(showHandler);
+                return showHandler;
             default:
                 return null;
         }

@@ -24,6 +24,7 @@ public class CreateTableExec implements ExecPlan {
     private String[] colNames;
     private TableDefine.Type[] colTypes;
     private List<String>[] colAttrs;
+    private long threadId;
 
     @Autowired
     private ObjectMapper objectMapper;
@@ -44,6 +45,9 @@ public class CreateTableExec implements ExecPlan {
                     break;
                 case "VARCHAR":
                     this.colTypes[k] = TableDefine.Type.VARCHAR;
+                    break;
+                case "FLOAT":
+                    this.colTypes[k] = TableDefine.Type.FLOAT;
                     break;
                 default:
                     throw new DataTypeException("Unknown data type: " + i);
@@ -70,16 +74,6 @@ public class CreateTableExec implements ExecPlan {
             res.add("Create table file");
         }else {
             res.add("Table file already exists");
-            res.add("Create table failed");
-            return String.join(";\n", res);
-        }
-
-        Path tableHeaderFile = tableDir.resolve(tableName + ".bulk");
-        if (!tableHeaderFile.toFile().exists()) {
-            Files.createFile(tableHeaderFile);
-            res.add("Create table bulk file");
-        }else {
-            res.add("Table bulk file already exists");
             res.add("Create table failed");
             return String.join(";\n", res);
         }
@@ -114,5 +108,9 @@ public class CreateTableExec implements ExecPlan {
         diskManager.writeTableFileHeader(tableName, new TableHeader());
         res.add("Write table header");
         return String.join(";\n", res);
+    }
+
+    public void setThreadId(long threadId) {
+        this.threadId = threadId;
     }
 }

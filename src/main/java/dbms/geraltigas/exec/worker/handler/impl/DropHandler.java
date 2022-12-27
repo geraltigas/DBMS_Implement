@@ -11,6 +11,7 @@ import net.sf.jsqlparser.statement.drop.Drop;
 public class DropHandler implements Handler {
 
     ExecList execList;
+    long threadId = 0;
     public DropHandler() {
     }
 
@@ -20,11 +21,17 @@ public class DropHandler implements Handler {
     }
 
     @Override
+    public void setThreadId(long threadId) {
+        this.threadId = threadId;
+    }
+
+    @Override
     public int handle(Statement query) throws DropTypeException {
         Drop drop = (Drop) query;
         if (drop.getType().equalsIgnoreCase("TABLE")) {
             DropExec execPlan = new DropExec(drop.getName().getName());
             ApplicationContextUtils.autowire(execPlan);
+            execPlan.setThreadId(threadId);
             execList.addExecPlan(execPlan);
             return execPlan.hashCode();
         }else {

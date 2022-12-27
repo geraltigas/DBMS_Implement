@@ -18,6 +18,8 @@ import static dbms.geraltigas.buffer.BlockBuffer.BLOCK_SIZE;
 public class SelectExec implements ExecPlan {
 
     List<Expression> expressions;
+    private long threadId;
+
 
     public static final int SELECT_PAGE_NUMBER = 5;
 
@@ -90,4 +92,7 @@ public class SelectExec implements ExecPlan {
     }
 
 
+    public void setThreadId(long threadId) {
+        this.threadId = threadId;
+    }
 }

@@ -28,6 +28,7 @@ import java.util.List;
 
 public class SelectHandler implements Handler {
     ExecList execList;
+    long threadId = 0;
     @Autowired
     TableBuffer tableBuffer;
     public SelectHandler() {
@@ -36,6 +37,11 @@ public class SelectHandler implements Handler {
     @Override
     public void setDataAccesser(ExecList execList) {
         this.execList = execList;
+    }
+
+    @Override
+    public void setThreadId(long threadId) {
+        this.threadId = threadId;
     }
 
     @Override
@@ -82,8 +88,9 @@ public class SelectHandler implements Handler {
         String fromTable = selectBody.getFromItem().toString();
         net.sf.jsqlparser.expression.Expression whereExpressions = selectBody.getWhere();
         Expression expression = parseExpression(whereExpressions);
-        ExecPlan execPlan = new SelectExec(expressions,names,fromTable,expression);
+        SelectExec execPlan = new SelectExec(expressions,names,fromTable,expression);
         ApplicationContextUtils.autowire(execPlan);
+        execPlan.setThreadId(threadId);
         execList.addExecPlan(execPlan);
         return execPlan.hashCode();
     }

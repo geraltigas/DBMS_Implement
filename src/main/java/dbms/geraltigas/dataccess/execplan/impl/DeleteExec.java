@@ -30,6 +30,7 @@ public class DeleteExec implements ExecPlan { // TODO: implement this
 
     String tableName;
     Expression whereExpression;
+    private long threadId;
 
     @Override
     public String execute(String dataPath) throws IOException, DataTypeException, FieldNotFoundException, BlockException, DataDirException {
@@ -82,5 +83,9 @@ public class DeleteExec implements ExecPlan { // TODO: implement this
     public DeleteExec(String tableName, Expression whereExpression) {
         this.tableName = tableName;
         this.whereExpression = whereExpression;
+    }
+
+    public void setThreadId(long threadId) {
+        this.threadId = threadId;
     }
 }

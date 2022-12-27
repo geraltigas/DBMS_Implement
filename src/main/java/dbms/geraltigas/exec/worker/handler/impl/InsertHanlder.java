@@ -22,7 +22,7 @@ import java.util.List;
 public class InsertHanlder implements Handler {
 
     ExecList execList;
-
+    long threadId = 0;
     @Autowired
     TableBuffer tableBuffer;
     public InsertHanlder() {
@@ -30,6 +30,11 @@ public class InsertHanlder implements Handler {
     @Override
     public void setDataAccesser(ExecList execList) {
         this.execList = execList;
+    }
+
+    @Override
+    public void setThreadId(long threadId) {
+        this.threadId = threadId;
     }
 
     @Override

@@ -119,9 +119,6 @@ public class DiskManager {
         int lastRecordOffset = pageHeader.getLastRecordOffset();
         byte[] records = new byte[pageHeader.getRecordNum() * pageHeader.getRecordLength()];
         System.arraycopy(pageData, lastRecordOffset, records, 0, records.length);
-        //        long offset = tableHeader.getHeaderLength() + (long) index * recardLength;
-//        long maxEndOffset = offset + (long) recordNum * recardLength;
-//        int length = Math.min((int) (maxEndOffset - offset),(int) (tableHeader.getEndOffset() - offset));
         return records;
     }
 

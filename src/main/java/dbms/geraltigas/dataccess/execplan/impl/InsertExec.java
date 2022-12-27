@@ -31,6 +31,8 @@ public class InsertExec implements ExecPlan {
 
     @Autowired
     DiskManager diskManager;
+    private long threadId;
+
 
     public InsertExec(String tableName, String[] colNames, List<List<Expression>> values) {
         this.tableName = tableName;
@@ -48,6 +50,11 @@ public class InsertExec implements ExecPlan {
 
     public List<List<Expression>> getValues() {
         return values;
+    }
+
+    @Override
+    public void setThreadId(long threadId) {
+        this.threadId = threadId;
     }
 
     @Override

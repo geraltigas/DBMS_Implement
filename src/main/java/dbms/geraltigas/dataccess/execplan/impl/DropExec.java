@@ -11,6 +11,7 @@ import java.util.Objects;
 
 public class DropExec implements ExecPlan {
     String tableName;
+    private long threadId;
 
     public DropExec(String tableName) {
         this.tableName = tableName;
@@ -47,5 +48,9 @@ public class DropExec implements ExecPlan {
         }
         res.add("Table " + tableName + " dropped");
         return String.join(";\n", res);
+    }
+
+    public void setThreadId(long threadId) {
+        this.threadId = threadId;
     }
 }

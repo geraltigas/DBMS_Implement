@@ -15,6 +15,11 @@ public class UpdateHandler implements Handler {
     }
 
     @Override
+    public void setThreadId(long threadId) {
+
+    }
+
+    @Override
     public int handle(Statement query) { // TODO: handle UPDATE
         return 0;
     }
