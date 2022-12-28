@@ -1,7 +1,7 @@
 package dbms.geraltigas.buffer;
 
 import dbms.geraltigas.dataccess.DiskManager;
-import dbms.geraltigas.dataccess.ExecList;
+import dbms.geraltigas.dataccess.ExecuteEngine;
 import dbms.geraltigas.exception.BlockException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -18,13 +18,13 @@ public class BlockBuffer {
     public static int BLOCK_SIZE = 4096;
     private static int BLOCK_COUNT = 4096;
 
-    public void FlushPages(ArrayList<Page> pages) throws BlockException, IOException {
+    synchronized public void FlushPages(ArrayList<Page> pages) throws BlockException, IOException {
         for (Page page : pages) {
             this.setPage(page.tableName,page.type,page.appendPath, page.blockId, page,true);
         }
     }
 
-    public void FlushIntoDisk() throws BlockException {
+    synchronized public void FlushIntoDisk() throws BlockException {
         for (Page page : this.pageArrayBuffer) {
             if (page != null && page.isWrited) {
                 try {
@@ -68,7 +68,7 @@ public class BlockBuffer {
     private Page[] pageArrayBuffer;
     private LinkedList<Page> changedPageList;
     @Autowired
-    ExecList execList;
+    ExecuteEngine executeEngine;
 
     public BlockBuffer() {
         pageArrayBuffer = new Page[BLOCK_COUNT];
@@ -89,7 +89,7 @@ public class BlockBuffer {
         return hashCode;
     }
 
-    public Page getPage(String tableName, DiskManager.AccessType type, String appendPath, int blockId) throws BlockException, IOException {
+    synchronized public Page getPage(String tableName, DiskManager.AccessType type, String appendPath, int blockId) throws BlockException, IOException {
         int hashCode = getHashCode(tableName, type, appendPath, blockId);
         if (pageArrayBuffer[hashCode] == null) {
             pageArrayBuffer[hashCode] = new Page(tableName,type, appendPath ,blockId, getBlockFromDisk(tableName, type, appendPath, blockId));
@@ -110,7 +110,7 @@ public class BlockBuffer {
         return pageArrayBuffer[hashCode];
     }
 
-    public void setPage(String tableName, DiskManager.AccessType type, String appendPath, int blockId, Page page, boolean isWrited) throws IOException {
+    synchronized public void setPage(String tableName, DiskManager.AccessType type, String appendPath, int blockId, Page page, boolean isWrited) throws IOException {
         int hashCode = getHashCode(tableName, type,appendPath, blockId);
         page.isWrited = isWrited;
         pageArrayBuffer[hashCode] = page;
@@ -121,9 +121,9 @@ public class BlockBuffer {
         long toOffset = fromOffset + BLOCK_SIZE;
         Path path;
         switch (type) {
-            case TABLE -> path = Paths.get(execList.getDateDir()+ "/tables/" + tableName + ".tbl");
-            case INDEX -> path = Paths.get(execList.getDateDir()+ "/indexes/" +tableName+"/"+ appendPath);
-            case BULK -> path = Paths.get(execList.getDateDir()+ "/tables/" + tableName + ".bulk");
+            case TABLE -> path = Paths.get(executeEngine.getDateDir()+ "/tables/" + tableName + ".tbl");
+            case INDEX -> path = Paths.get(executeEngine.getDateDir()+ "/indexes/" +tableName+"/"+ appendPath);
+            case BULK -> path = Paths.get(executeEngine.getDateDir()+ "/tables/" + tableName + ".bulk");
             default -> throw new BlockException("Invalid access type");
         }
         File file = path.toFile();
@@ -139,9 +139,9 @@ public class BlockBuffer {
         long toOffset = fromOffset + BLOCK_SIZE;
         Path path = null;
         switch (type) {
-            case TABLE -> path = Paths.get(execList.getDateDir()+ "/tables/" + tableName + ".tbl");
-            case INDEX -> path = Paths.get(execList.getDateDir()+ "/indexes/" +tableName+"/"+ type + ".idx");
-            case BULK -> path = Paths.get(execList.getDateDir()+ "/tables/" + tableName + ".bulk");
+            case TABLE -> path = Paths.get(executeEngine.getDateDir()+ "/tables/" + tableName + ".tbl");
+            case INDEX -> path = Paths.get(executeEngine.getDateDir()+ "/indexes/" +tableName+"/"+ type + ".idx");
+            case BULK -> path = Paths.get(executeEngine.getDateDir()+ "/tables/" + tableName + ".bulk");
             default -> throw new BlockException("Invalid access type");
         }
         File file = path.toFile();

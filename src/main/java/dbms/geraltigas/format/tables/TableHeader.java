@@ -18,14 +18,14 @@ public class TableHeader { // in the first block of the table file
     public static final int TABLE_HEADER_LENGTH = 4;
 
     public TableHeader(byte[] header) {
-        tableLength = DataDump.BytesToInt(header, 0);
+        tableLength = DataDump.bytesToInt(header, 0);
 //        endOffset = DataDump.BytesToInt(header, 4);
 //        bulkNum = DataDump.BytesToInt(header, 8);
     }
 
     public byte[] ToBytes() {
         byte[] data;
-        data = DataDump.Dump(List.of(TableDefine.Type.INTEGER), List.of(tableLength));
+        data = DataDump.dump(List.of(TableDefine.Type.INTEGER), List.of(tableLength));
         return data;
     }
 

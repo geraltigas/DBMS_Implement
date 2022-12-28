@@ -1,7 +1,6 @@
 package dbms.geraltigas.format.tables;
 
 import dbms.geraltigas.bean.ApplicationContextUtils;
-import dbms.geraltigas.buffer.BlockBuffer;
 import dbms.geraltigas.dataccess.DiskManager;
 import dbms.geraltigas.exception.BlockException;
 import dbms.geraltigas.exception.DataDirException;
@@ -46,21 +45,21 @@ public class Bulk {
     public void flush() throws BlockException, DataDirException, IOException {
         int bulkNum = bulkContent.size();
         byte[] bulkData = new byte[bulkNum * 4+4];
-        diskManager.writeBytesAt(tableName, DiskManager.AccessType.BULK,null,DataDump.IntToBytes(bulkNum),0);
+        diskManager.writeBytesAt(tableName, DiskManager.AccessType.BULK,null,DataDump.intToBytes(bulkNum),0);
         int temp = bulkNum*4+4;
         for (int i = 4; i < temp; i+=4) {
-            diskManager.writeBytesAt(tableName, DiskManager.AccessType.BULK,null,DataDump.IntToBytes(bulkContent.iterator().next()),i);
+            diskManager.writeBytesAt(tableName, DiskManager.AccessType.BULK,null,DataDump.intToBytes(bulkContent.iterator().next()),i);
         }
     }
 
     public void initBulk() throws BlockException, IOException, DataDirException {
         ApplicationContextUtils.autowire(this);
         byte[] firstPageData = diskManager.readBytesAt(tableName, DiskManager.AccessType.BULK, null, 0, 4096);
-        bulkNum = DataDump.BytesToInt(firstPageData, 0);
+        bulkNum = DataDump.bytesToInt(firstPageData, 0);
         byte[] bulkData = diskManager.readBytesAt(tableName, DiskManager.AccessType.BULK, null, 4, bulkNum*4);
         int temp = bulkNum*4+4;
         for (int i = 4; i < temp; i+=4) {
-            bulkContent.add(DataDump.BytesToInt(bulkData, 0));
+            bulkContent.add(DataDump.bytesToInt(bulkData, 0));
         }
     }
 }

@@ -10,5 +10,6 @@ import java.io.IOException;
 public interface ExecPlan {
     long threadId = 0;
     void setThreadId(long threadId);
+    long getThreadId();
     String execute(String dataPath) throws IOException, DataTypeException, FieldNotFoundException, BlockException, DataDirException;
 }

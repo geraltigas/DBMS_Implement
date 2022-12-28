@@ -1,7 +1,7 @@
 package dbms.geraltigas.exec.worker.handler.impl;
 
 import dbms.geraltigas.bean.ApplicationContextUtils;
-import dbms.geraltigas.dataccess.ExecList;
+import dbms.geraltigas.dataccess.ExecuteEngine;
 import dbms.geraltigas.dataccess.execplan.impl.CreateTableExec;
 import dbms.geraltigas.exception.DataTypeException;
 import dbms.geraltigas.exec.worker.handler.Handler;
@@ -13,12 +13,12 @@ import java.util.List;
 
 public class CreateTableHandler implements Handler {
 
-    ExecList execList;
+    ExecuteEngine executeEngine;
     long threadId = 0;
 
     @Override
-    public void setDataAccesser(ExecList execList) {
-        this.execList = execList;
+    public void setDataAccesser(ExecuteEngine executeEngine) {
+        this.executeEngine = executeEngine;
     }
 
     @Override
@@ -39,12 +39,12 @@ public class CreateTableHandler implements Handler {
         CreateTableExec execPlan = new CreateTableExec(tableName, colNames, colTypes, colAttrs);
         ApplicationContextUtils.autowire(execPlan);
         execPlan.setThreadId(threadId);
-        execList.addExecPlan(execPlan);
+        executeEngine.addExecPlan(execPlan);
         return execPlan.hashCode();
     }
 
     @Override
     public String getResault(int hash) {
-        return execList.getResault(hash);
+        return executeEngine.getResult(hash);
     }
 }

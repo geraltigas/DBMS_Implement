@@ -14,7 +14,6 @@ public class Listener {
     private static final int PORT = 12345;
     private static final String HOST = "localhost";
 
-
     @PostConstruct
     public void init() throws IOException {
         System.out.println("[Server] Server listening on port " + PORT);

@@ -21,14 +21,14 @@ public class PageHeader {
     public static final int PAGE_HEADER_LENGTH = 12;
 
     public PageHeader(byte[] header) {
-        recordNum = DataDump.BytesToInt(header, 0);
-        recordLength = DataDump.BytesToInt(header, 4);
-        lastRecordOffset = DataDump.BytesToInt(header, 8);
+        recordNum = DataDump.bytesToInt(header, 0);
+        recordLength = DataDump.bytesToInt(header, 4);
+        lastRecordOffset = DataDump.bytesToInt(header, 8);
     }
 
     public byte[] ToBytes() {
         byte[] data;
-        data = DataDump.Dump(List.of(TableDefine.Type.INTEGER, TableDefine.Type.INTEGER, TableDefine.Type.INTEGER), List.of(recordNum, recordLength, lastRecordOffset));
+        data = DataDump.dump(List.of(TableDefine.Type.INTEGER, TableDefine.Type.INTEGER, TableDefine.Type.INTEGER), List.of(recordNum, recordLength, lastRecordOffset));
         return data;
     }
 }

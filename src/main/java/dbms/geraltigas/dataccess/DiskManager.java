@@ -14,12 +14,12 @@ import java.util.ArrayList;
 
 
 @Component
-public class DiskManager {
+public class DiskManager { // TODO: change to thread safe, use lock manager to manager it.
 
     @Autowired
     BlockBuffer blockBuffer;
     @Autowired
-    ExecList execList;
+    ExecuteEngine executeEngine;
 
     public TableHeader getTableHeader(String tableName) throws BlockException, DataDirException, IOException {
         byte[] header = readBytesAt(tableName,AccessType.TABLE ,null,0, TableHeader.TABLE_HEADER_LENGTH);
@@ -46,7 +46,7 @@ public class DiskManager {
     }
 
     public byte[] readBytesAt(String tableName, AccessType type, String appendPath, long offset, int length) throws IOException, DataDirException, BlockException { // using page buffer to read byte array include header
-        File file = new File(execList.getDateDir() + "/tables/" + tableName+".tbl");
+        File file = new File(executeEngine.getDateDir() + "/tables/" + tableName+".tbl");
         if (!file.exists()) {
             throw new DataDirException("Table " + tableName + " does not exist");
         }
@@ -101,7 +101,7 @@ public class DiskManager {
     }
 
     public void writeTableFileHeader(String tableName, TableHeader tableHeader) throws DataDirException {
-        File file = new File(execList.getDateDir() + "/tables/" + tableName+".tbl");
+        File file = new File(executeEngine.getDateDir() + "/tables/" + tableName+".tbl");
         if (!file.exists()) {
             throw new DataDirException("Table file not exists");
         }
@@ -120,6 +120,34 @@ public class DiskManager {
         byte[] records = new byte[pageHeader.getRecordNum() * pageHeader.getRecordLength()];
         System.arraycopy(pageData, lastRecordOffset, records, 0, records.length);
         return records;
+    }
+
+    public byte[] readOneRecord(String tableName, int pageIndex, int recordIndex) throws BlockException, DataDirException, IOException {
+        byte[] pageData = readPage(tableName, pageIndex);
+        PageHeader pageHeader = new PageHeader(pageData);
+        int lastRecordOffset = pageHeader.getLastRecordOffset();
+        byte[] record = new byte[pageHeader.getRecordLength()];
+        System.arraycopy(pageData, lastRecordOffset + ((pageHeader.getRecordNum()-1)-recordIndex) * pageHeader.getRecordLength(), record, 0, record.length);
+        return record;
+    }
+
+    public void writeOneRecord(String tableName, int pageIndex, int recordIndex, byte[] record) throws BlockException, DataDirException, IOException {
+        byte[] pageData = readPage(tableName, pageIndex);
+        PageHeader pageHeader = new PageHeader(pageData);
+        int lastRecordOffset = pageHeader.getLastRecordOffset();
+        System.arraycopy(record, 0, pageData, lastRecordOffset + ((pageHeader.getRecordNum()-1)-recordIndex) * pageHeader.getRecordLength(), record.length);
+        writePage(tableName, pageIndex, 0, pageData);
+    }
+
+    public PageHeader readPageHeader(String tableName, int pageIndex) throws BlockException, DataDirException, IOException {
+        byte[] pageData = readPage(tableName, pageIndex);
+        return new PageHeader(pageData);
+    }
+
+    public void writePageHeader(String tableName, int pageIndex, PageHeader pageHeader) throws BlockException, DataDirException, IOException {
+        byte[] pageData = readPage(tableName, pageIndex);
+        System.arraycopy(pageHeader.ToBytes(), 0, pageData, 0, PageHeader.PAGE_HEADER_LENGTH);
+        writePage(tableName, pageIndex, 0, pageData);
     }
 
     public void writeRecord(String tableName,int pageIndex, int index, byte[] record, int recordLength,PageHeader pageHeader) {

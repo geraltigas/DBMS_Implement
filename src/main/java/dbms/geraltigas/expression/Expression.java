@@ -22,7 +22,7 @@ public class Expression {
     public boolean evalNoAlias(byte[] record, TableDefine tableDefine) {
         Map<String,Object> map = new HashMap<>();
         Map<String, TableDefine.Type> typeMap = new HashMap<>();
-        List<Object> datas = DataDump.Load(tableDefine.getColTypes(),record,0);
+        List<Object> datas = DataDump.load(tableDefine.getColTypes(),record,0);
         for (int i = 0; i < tableDefine.getColNames().size(); i++) {
             String field = tableDefine.getColNames().get(i);
             map.put(field,datas.get(i));
@@ -34,7 +34,7 @@ public class Expression {
     public static void nullEval(byte[] record, TableDefine tableDefine, List<String> alias, List<Expression> expressions, List<String> res) {
         List<TableDefine.Type> types = tableDefine.getColTypes();
         List<String> names = tableDefine.getColNames();
-        List<Object> values = DataDump.Load(types, record, 0);
+        List<Object> values = DataDump.load(types, record, 0);
         Map<String,Object> map = new HashMap<>();
         Map<String, TableDefine.Type> typeMap = new HashMap<>();
         for (int i = 0; i < names.size(); i++) {
@@ -49,7 +49,7 @@ public class Expression {
     public boolean eval(byte[] record, TableDefine tableDefine, List<String> alias, List<Expression> expressions, List<String> res) {
         List<TableDefine.Type> types = tableDefine.getColTypes();
         List<String> names = tableDefine.getColNames();
-        List<Object> values = DataDump.Load(types, record, 0);
+        List<Object> values = DataDump.load(types, record, 0);
         Map<String,Object> map = new HashMap<>();
         Map<String, TableDefine.Type> typeMap = new HashMap<>();
         for (int i = 0; i < names.size(); i++) {

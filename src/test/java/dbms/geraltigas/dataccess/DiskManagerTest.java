@@ -2,6 +2,7 @@ package dbms.geraltigas.dataccess;
 
 import dbms.geraltigas.exception.BlockException;
 import dbms.geraltigas.exception.DataDirException;
+import dbms.geraltigas.format.tables.PageHeader;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -20,5 +21,22 @@ class DiskManagerTest {
     @Test
     void tableEndOffset() throws BlockException, DataDirException, IOException {
         assertEquals(13, diskManager.getTableHeader("student"));
+    }
+
+    @Test
+    void readOneRecord() throws BlockException, DataDirException, IOException {
+        byte[] data = diskManager.readOneRecord("test1",1, 0);
+        data[0] = 0;
+        data[1] = 10;
+        diskManager.writeOneRecord("test1", 1, 0, data);
+        while (true){}
+    }
+
+    @Test
+    void readPageHeader() throws BlockException, DataDirException, IOException {
+        PageHeader pageHeader = diskManager.readPageHeader("test1", 1);
+        pageHeader.setRecordNum(6);
+        diskManager.writePageHeader("test1", 1, pageHeader);
+        while (true) {}
     }
 }

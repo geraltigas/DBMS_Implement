@@ -7,18 +7,22 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.io.File;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.ExecutorService;
 
 @Component
-public class ExecList {
+public class ExecuteEngine {
 
     @Autowired
     ExecutorService executorService;
 
-    private ConcurrentLinkedDeque<ExecPlan> execPlans = new ConcurrentLinkedDeque<>();
+    @Autowired
+    NormalExecutor normalExecutor;
+
     private ConcurrentHashMap<Integer, String> results = new ConcurrentHashMap<>();
+    private Map<Long, Executor> transactions = new ConcurrentHashMap<>();
 
     private String dataPath = "E:/DBMSTEST";
 
@@ -44,26 +48,31 @@ public class ExecList {
     }
 
     public void addExecPlan(ExecPlan execPlan) {
-        this.execPlans.add(execPlan);
+        if (transactions.containsKey(execPlan.getThreadId())) {
+            // add execplan to transaction to shedule
+            transactions.get(execPlan.getThreadId()).addExecplan(execPlan);
+        } else {
+            normalExecutor.addExecplan(execPlan);
+        }
     }
 
-    public String getResault(int hash) {
+    public String getResult(int hash) {
         return this.results.get(hash);
+    }
+    public void addResult(int hash, String result) {
+        this.results.put(hash, result);
+    }
+
+    public void beginTxn(long threadId) {
+        Executor executor = new TransactionExecutor(threadId);
+        executor.setExecuteEngine(this);
+        transactions.put(threadId,executor);
+        executorService.submit(executor);
     }
 
     @PostConstruct
     private void beginDataAccessWatcher() {
-        System.out.println("[ExecList] DataAccesser begin to watch");
-        executorService.submit(() -> {
-            while (true) {
-                if (execPlans.size() > 0) {
-                    ExecPlan execPlan = execPlans.poll();
-                    assert execPlan != null;
-                    String res = execPlan.execute(dataPath);
-                    results.put(execPlan.hashCode(), res);
-                }
-            }
-        });
+        normalExecutor.setExecuteEngine(this);
+        executorService.submit(normalExecutor);
     }
-
 }

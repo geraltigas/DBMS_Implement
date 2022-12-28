@@ -56,6 +56,10 @@ public class InsertExec implements ExecPlan {
     public void setThreadId(long threadId) {
         this.threadId = threadId;
     }
+    @Override
+    public long getThreadId() {
+        return this.threadId;
+    }
 
     @Override
     public String execute(String dataPath) throws FieldNotFoundException, BlockException, IOException, DataDirException, DataTypeException {
@@ -91,7 +95,7 @@ public class InsertExec implements ExecPlan {
         int per_size = CalculateLength(colTypes,colAttrs);
         int writeSize = per_size * records.size();
         byte[] data = new byte[writeSize];
-        DataDump.DumpSrc(data,per_size,colTypes,records);
+        DataDump.dumpSrc(data,per_size,colTypes,records);
         if (tableHeader.getTableLength() == 0) {
             int pageNum = records.size()*per_size/(BlockBuffer.BLOCK_SIZE - PageHeader.PAGE_HEADER_LENGTH);
             if (records.size()*per_size%(BlockBuffer.BLOCK_SIZE - PageHeader.PAGE_HEADER_LENGTH) != 0) {

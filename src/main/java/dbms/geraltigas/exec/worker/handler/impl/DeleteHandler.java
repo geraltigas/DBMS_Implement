@@ -1,7 +1,7 @@
 package dbms.geraltigas.exec.worker.handler.impl;
 
 import dbms.geraltigas.bean.ApplicationContextUtils;
-import dbms.geraltigas.dataccess.ExecList;
+import dbms.geraltigas.dataccess.ExecuteEngine;
 import dbms.geraltigas.dataccess.execplan.impl.DeleteExec;
 import dbms.geraltigas.exception.ExpressionException;
 import dbms.geraltigas.exec.worker.handler.Handler;
@@ -13,14 +13,14 @@ public class DeleteHandler implements Handler {
 
     long threadId = 0;
 
-    ExecList execList;
+    ExecuteEngine executeEngine;
     public DeleteHandler() {
 
     }
 
     @Override
-    public void setDataAccesser(ExecList execList) {
-        this.execList = execList;
+    public void setDataAccesser(ExecuteEngine executeEngine) {
+        this.executeEngine = executeEngine;
     }
 
     @Override
@@ -37,13 +37,13 @@ public class DeleteHandler implements Handler {
         DeleteExec execPlan = new DeleteExec(tableName,whereExpression);
         ApplicationContextUtils.autowire(execPlan);
         execPlan.setThreadId(threadId);
-        execList.addExecPlan(execPlan);
+        executeEngine.addExecPlan(execPlan);
         return execPlan.hashCode();
     }
 
     @Override
     public String getResault(int hash) {
-        return execList.getResault(hash);
+        return executeEngine.getResult(hash);
     }
 }
 

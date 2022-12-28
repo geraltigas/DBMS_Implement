@@ -2,8 +2,7 @@ package dbms.geraltigas.exec.worker.handler.impl;
 
 import dbms.geraltigas.bean.ApplicationContextUtils;
 import dbms.geraltigas.buffer.TableBuffer;
-import dbms.geraltigas.dataccess.ExecList;
-import dbms.geraltigas.dataccess.execplan.ExecPlan;
+import dbms.geraltigas.dataccess.ExecuteEngine;
 import dbms.geraltigas.dataccess.execplan.impl.SelectExec;
 import dbms.geraltigas.exception.ExpressionException;
 import dbms.geraltigas.exec.worker.handler.Handler;
@@ -27,7 +26,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class SelectHandler implements Handler {
-    ExecList execList;
+    ExecuteEngine executeEngine;
     long threadId = 0;
     @Autowired
     TableBuffer tableBuffer;
@@ -35,8 +34,8 @@ public class SelectHandler implements Handler {
     }
 
     @Override
-    public void setDataAccesser(ExecList execList) {
-        this.execList = execList;
+    public void setDataAccesser(ExecuteEngine executeEngine) {
+        this.executeEngine = executeEngine;
     }
 
     @Override
@@ -91,7 +90,7 @@ public class SelectHandler implements Handler {
         SelectExec execPlan = new SelectExec(expressions,names,fromTable,expression);
         ApplicationContextUtils.autowire(execPlan);
         execPlan.setThreadId(threadId);
-        execList.addExecPlan(execPlan);
+        executeEngine.addExecPlan(execPlan);
         return execPlan.hashCode();
     }
 
@@ -153,25 +152,26 @@ public class SelectHandler implements Handler {
             case "Parenthesis" -> {
                 return parseExpression(((Parenthesis) expression).getExpression());
             }
-            case "Subtraction" -> {
-                expression_.setLeft(parseExpression(((Subtraction) expression).getLeftExpression()));
-                expression_.setRight(parseExpression(((Subtraction) expression).getRightExpression()));
-                expression_.setOp(Expression.Op.SUBTRACT);
-                return expression_;
-            }
-            case "Addition" -> {
-                expression_.setLeft(parseExpression(((Addition) expression).getLeftExpression()));
-                expression_.setRight(parseExpression(((Addition) expression).getRightExpression()));
-                expression_.setOp(Expression.Op.PLUS);
-                return expression_;
-            }
+            //  取消对运算的支持
+//            case "Subtraction" -> {
+//                expression_.setLeft(parseExpression(((Subtraction) expression).getLeftExpression()));
+//                expression_.setRight(parseExpression(((Subtraction) expression).getRightExpression()));
+//                expression_.setOp(Expression.Op.SUBTRACT);
+//                return expression_;
+//            }
+//            case "Addition" -> {
+//                expression_.setLeft(parseExpression(((Addition) expression).getLeftExpression()));
+//                expression_.setRight(parseExpression(((Addition) expression).getRightExpression()));
+//                expression_.setOp(Expression.Op.PLUS);
+//                return expression_;
+//            }
             default -> throw new ExpressionException("expression not supported");
         }
     }
 
     @Override
     public String getResault(int hash) {
-        return execList.getResault(hash);
+        return executeEngine.getResult(hash);
     }
 }
 

@@ -1,6 +1,6 @@
 package dbms.geraltigas.exec.worker.handler.impl;
 
-import dbms.geraltigas.dataccess.ExecList;
+import dbms.geraltigas.dataccess.ExecuteEngine;
 import dbms.geraltigas.dataccess.execplan.impl.CreateIndexExec;
 import dbms.geraltigas.exception.HandleException;
 import dbms.geraltigas.exec.worker.handler.Handler;
@@ -8,12 +8,12 @@ import net.sf.jsqlparser.statement.Statement;
 import net.sf.jsqlparser.statement.create.index.CreateIndex;
 
 public class CreateIndexHandler implements Handler {
-    ExecList execList;
+    ExecuteEngine executeEngine;
     long threadId = 0;
 
     @Override
-    public void setDataAccesser(ExecList execList) {
-        this.execList = execList;
+    public void setDataAccesser(ExecuteEngine executeEngine) {
+        this.executeEngine = executeEngine;
     }
 
     @Override
@@ -27,13 +27,13 @@ public class CreateIndexHandler implements Handler {
         String columnName = createIndex.getIndex().getColumnsNames().get(0);
         CreateIndexExec createIndexExec = new CreateIndexExec(indexName, tableName, columnName);
         createIndexExec.setThreadId(threadId);
-        execList.addExecPlan(createIndexExec);
+        executeEngine.addExecPlan(createIndexExec);
         return createIndexExec.hashCode();
     }
 
     @Override
     public String getResault(int hash) {
-        return execList.getResault(hash);
+        return executeEngine.getResult(hash);
     }
 
     @Override

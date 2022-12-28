@@ -92,7 +92,12 @@ public class SelectExec implements ExecPlan {
     }
 
 
+    @Override
     public void setThreadId(long threadId) {
         this.threadId = threadId;
+    }
+    @Override
+    public long getThreadId() {
+        return this.threadId;
     }
 }

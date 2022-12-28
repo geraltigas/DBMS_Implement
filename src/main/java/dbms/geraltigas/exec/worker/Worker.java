@@ -25,13 +25,13 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.Socket;
-import java.net.SocketException;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 
+@Component
 public class Worker implements Runnable {
     @Override
     public void run() {
@@ -95,8 +95,6 @@ public class Worker implements Runnable {
     private Socket socket;
 
     private long threadId;
-
-    private Boolean inTransaction = false;
 
     private Handler handler;
 
@@ -172,14 +170,11 @@ public class Worker implements Runnable {
             if (statement.trim().length() == 0) {
                 continue;
             }else if ("BEGIN".equalsIgnoreCase(statement.trim())) {
-                this.inTransaction = true;
-                beginExec();
+                res.add(beginExec());
             } else if ("COMMIT".equalsIgnoreCase(statement.trim())) {
-                commitExec();
-                this.inTransaction = false;
+                res.add(commitExec());
             }else if ("ROLLBACK".equalsIgnoreCase(statement.trim())) {
-                this.inTransaction = false;
-                rollbackExec();
+                res.add(rollbackExec());
             }else if (statement.toUpperCase().contains("SHOW")) {
                 res.add(showExec(statement));
             }
@@ -226,14 +221,17 @@ public class Worker implements Runnable {
                 return "Unsupported Statement";
         }
     }
-    private void beginExec() { //TODO: begin transaction
-
+    private String beginExec() throws HandleException, DataTypeException, DropTypeException, ExpressionException, ExecutionException, InterruptedException { //TODO: begin transaction
+        workerPrint("Begin Transaction");
+        handler = handlerFactory.getHandler(HandlerFactory.HandlerType.BEGIN);
+        handler.setThreadId(threadId);
+        return waitForResult(handler.handle(null));
     }
-    private void commitExec() { //TODO: commit transaction
-
+    private String commitExec() { //TODO: commit transaction
+        return null;
     }
-    private void rollbackExec() { //TODO: rollback transaction
-
+    private String rollbackExec() { //TODO: rollback transaction
+        return null;
     }
 
     private String createIndexExec(CreateIndex statement) throws HandleException, ExecutionException, InterruptedException, DataTypeException, DropTypeException, ExpressionException { //TODO: Create Index

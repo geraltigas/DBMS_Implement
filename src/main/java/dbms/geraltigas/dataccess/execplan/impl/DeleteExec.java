@@ -85,7 +85,12 @@ public class DeleteExec implements ExecPlan { // TODO: implement this
         this.whereExpression = whereExpression;
     }
 
+    @Override
     public void setThreadId(long threadId) {
         this.threadId = threadId;
+    }
+    @Override
+    public long getThreadId() {
+        return this.threadId;
     }
 }

@@ -2,7 +2,7 @@ package dbms.geraltigas.exec.worker.handler.impl;
 
 import dbms.geraltigas.bean.ApplicationContextUtils;
 import dbms.geraltigas.buffer.TableBuffer;
-import dbms.geraltigas.dataccess.ExecList;
+import dbms.geraltigas.dataccess.ExecuteEngine;
 import dbms.geraltigas.dataccess.execplan.impl.InsertExec;
 import dbms.geraltigas.exec.worker.handler.Handler;
 import dbms.geraltigas.format.tables.TableDefine;
@@ -21,15 +21,15 @@ import java.util.List;
 
 public class InsertHanlder implements Handler {
 
-    ExecList execList;
+    ExecuteEngine executeEngine;
     long threadId = 0;
     @Autowired
     TableBuffer tableBuffer;
     public InsertHanlder() {
     }
     @Override
-    public void setDataAccesser(ExecList execList) {
-        this.execList = execList;
+    public void setDataAccesser(ExecuteEngine executeEngine) {
+        this.executeEngine = executeEngine;
     }
 
     @Override
@@ -62,12 +62,12 @@ public class InsertHanlder implements Handler {
         }
         InsertExec execPlan = new InsertExec(tableName, colNames, colValues);
         ApplicationContextUtils.autowire(execPlan);
-        execList.addExecPlan(execPlan);
+        executeEngine.addExecPlan(execPlan);
         return execPlan.hashCode();
     }
 
     @Override
     public String getResault(int hash) {
-        return execList.getResault(hash);
+        return executeEngine.getResult(hash);
     }
 }

@@ -50,7 +50,12 @@ public class DropExec implements ExecPlan {
         return String.join(";\n", res);
     }
 
+    @Override
     public void setThreadId(long threadId) {
         this.threadId = threadId;
+    }
+    @Override
+    public long getThreadId() {
+        return this.threadId;
     }
 }

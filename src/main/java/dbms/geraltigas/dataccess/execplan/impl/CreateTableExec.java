@@ -31,7 +31,7 @@ public class CreateTableExec implements ExecPlan {
     @Autowired
     private TableBuffer tableBuffer;
     @Autowired
-    private DiskManager diskManager;
+    private DiskManager diskManager; // use lock manager to manager this part to make it thread safe
 
     public CreateTableExec(String tableName, String[] colNames, String[] colTypes, List<String>[] colAttrs) throws DataTypeException {
         this.tableName = tableName;
@@ -110,7 +110,13 @@ public class CreateTableExec implements ExecPlan {
         return String.join(";\n", res);
     }
 
+    @Override
     public void setThreadId(long threadId) {
         this.threadId = threadId;
     }
+    @Override
+    public long getThreadId() {
+        return this.threadId;
+    }
+
 }

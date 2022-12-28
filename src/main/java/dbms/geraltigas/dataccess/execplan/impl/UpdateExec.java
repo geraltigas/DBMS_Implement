@@ -9,9 +9,14 @@ import dbms.geraltigas.exception.FieldNotFoundException;
 import java.io.IOException;
 
 public class UpdateExec implements ExecPlan { // TODO: implement this
+    private long threadId;
     @Override
     public void setThreadId(long threadId) {
-
+        this.threadId = threadId;
+    }
+    @Override
+    public long getThreadId() {
+        return this.threadId;
     }
 
     @Override

@@ -1,13 +1,11 @@
 package dbms.geraltigas.buffer;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import dbms.geraltigas.dataccess.ExecList;
+import dbms.geraltigas.dataccess.ExecuteEngine;
 import dbms.geraltigas.exception.BlockException;
 import dbms.geraltigas.exception.DataDirException;
 import dbms.geraltigas.format.tables.Bulk;
 import dbms.geraltigas.format.tables.TableDefine;
-import lombok.Getter;
-import lombok.Setter;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -16,24 +14,17 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 
 @Component
-public class TableBuffer {
-    private Map<String, TableDefine> tableDefineMap = new HashMap<>();
-    private Map<String, Bulk> tableDataMap = new HashMap<>();
+public class TableBuffer { // TableBuffer is thread safe
+    private Map<String, TableDefine> tableDefineMap = new ConcurrentHashMap<>();
     @Autowired
     ObjectMapper objectMapper;
     @Autowired
-    ExecList execList;
+    ExecuteEngine executeEngine;
 
-    public Bulk getTableBulk(String tableName) throws BlockException, DataDirException, IOException {
-        if (tableDataMap.containsKey(tableName)) {
-            return tableDataMap.get(tableName);
-        } else {
-            return new Bulk(tableName);
-        }
-    }
 
     public void addTableDefine(String tableName, TableDefine tableDefine) {
         tableDefineMap.put(tableName, tableDefine);
@@ -43,7 +34,7 @@ public class TableBuffer {
         if (tableDefineMap.containsKey(tableName)) {
             return tableDefineMap.get(tableName);
         }else {
-            TableDefine tableDefine = getTableDefineFromFile(execList.getDateDir(), tableName);
+            TableDefine tableDefine = getTableDefineFromFile(executeEngine.getDateDir(), tableName);
             tableDefineMap.put(tableName, tableDefine);
             return tableDefine;
         }

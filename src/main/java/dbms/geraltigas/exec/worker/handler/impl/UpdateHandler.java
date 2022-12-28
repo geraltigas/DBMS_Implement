@@ -1,17 +1,17 @@
 package dbms.geraltigas.exec.worker.handler.impl;
 
-import dbms.geraltigas.dataccess.ExecList;
+import dbms.geraltigas.dataccess.ExecuteEngine;
 import dbms.geraltigas.exec.worker.handler.Handler;
 import net.sf.jsqlparser.statement.Statement;
 
 public class UpdateHandler implements Handler {
-    ExecList execList;
+    ExecuteEngine executeEngine;
     public UpdateHandler() {
     }
 
     @Override
-    public void setDataAccesser(ExecList execList) {
-        this.execList = execList;
+    public void setDataAccesser(ExecuteEngine executeEngine) {
+        this.executeEngine = executeEngine;
     }
 
     @Override

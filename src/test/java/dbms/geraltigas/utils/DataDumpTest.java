@@ -13,8 +13,8 @@ class DataDumpTest {
     @Test
     void intToBytes() {
         int value = 123456789;
-        byte[] bytes = DataDump.IntToBytes(value);
-        int result = DataDump.BytesToInt(bytes, 0);
+        byte[] bytes = DataDump.intToBytes(value);
+        int result = DataDump.bytesToInt(bytes, 0);
         System.out.println(bytes.length);
         assertEquals(value, result);
     }
@@ -22,8 +22,8 @@ class DataDumpTest {
     @Test
     void floatToBytes() {
         float value = 123456789.123456789f;
-        byte[] bytes = DataDump.FloatToBytes(value);
-        float result = DataDump.BytesToFloat(bytes, 0);
+        byte[] bytes = DataDump.floatToBytes(value);
+        float result = DataDump.bytesToFloat(bytes, 0);
         System.out.println(bytes.length);
         assertEquals(value, result);
     }
@@ -31,8 +31,8 @@ class DataDumpTest {
     @Test
     void stringToBytes() {
         String value = "123456789";
-        byte[] bytes = DataDump.StringToBytes(value);
-        String result = DataDump.BytesToString(bytes, 0);
+        byte[] bytes = DataDump.stringToBytes(value);
+        String result = DataDump.bytesToString(bytes, 0);
         assertEquals(value, result);
     }
 
@@ -48,8 +48,8 @@ class DataDumpTest {
         datas.add(123456789.123456789f);
         datas.add("123456789");
         datas.add(123123);
-        byte[] bytes = DataDump.DumpWithValid(typs, datas);
-        List<Object> result = DataDump.Load(typs, bytes, 0);
+        byte[] bytes = DataDump.dumpWithValid(typs, datas);
+        List<Object> result = DataDump.load(typs, bytes, 0);
         assertEquals(datas, result);
         assertEquals(datas.get(0),result.get(0));
         assertEquals(datas.get(1),result.get(1));

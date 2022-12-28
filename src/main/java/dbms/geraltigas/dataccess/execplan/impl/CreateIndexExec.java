@@ -54,7 +54,12 @@ public class CreateIndexExec implements ExecPlan { // TODO: implement this
         return "Create index " + indexName + " on " + tableName+"."+columnName+ " success";
     }
 
+    @Override
     public void setThreadId(long threadId) {
         this.threadId = threadId;
+    }
+    @Override
+    public long getThreadId() {
+        return this.threadId;
     }
 }

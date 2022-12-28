@@ -9,11 +9,24 @@ import java.util.List;
 
 public class DataDump {
 
-    public static byte[] IntToBytes(int value) {
+    public static byte[] longToBytes(long x) {
+        ByteBuffer buffer = ByteBuffer.allocate(Long.BYTES);
+        buffer.putLong(x);
+        return buffer.array();
+    }
+
+    public static long bytesToLong(byte[] bytes) {
+        ByteBuffer buffer = ByteBuffer.allocate(Long.BYTES);
+        buffer.put(bytes);
+        buffer.flip();//need flip
+        return buffer.getLong();
+    }
+
+    public static byte[] intToBytes(int value) {
         return ByteBuffer.allocate(4).putInt(value).array();
     }
 
-    public static int BytesToInt(byte[] src, int offset) {
+    public static int bytesToInt(byte[] src, int offset) {
         int value;
         value = (int) ((src[offset + 3] & 0xFF)
                 | ((src[offset + 2] & 0xFF) << 8)
@@ -22,7 +35,7 @@ public class DataDump {
         return value;
     }
 
-    public static byte[] FloatToBytes(float value) {
+    public static byte[] floatToBytes(float value) {
         int fbit = Float.floatToIntBits(value);
         byte[] b = new byte[4];
         for (int i = 0; i < 4; i++) {
@@ -31,7 +44,7 @@ public class DataDump {
         return b;
     }
 
-    public static float BytesToFloat(byte[] src, int offset) {
+    public static float bytesToFloat(byte[] src, int offset) {
         int l;
         l = src[offset + 3];
         l &= 0xff;
@@ -43,20 +56,20 @@ public class DataDump {
         return Float.intBitsToFloat(l);
     }
 
-    public static byte[] StringToBytes(String value) {
+    public static byte[] stringToBytes(String value) {
         byte[] bytes = value.getBytes();
         byte[] temp = new byte[bytes.length + 4];
-        System.arraycopy(IntToBytes(bytes.length), 0, temp, 0, 4);
+        System.arraycopy(intToBytes(bytes.length), 0, temp, 0, 4);
         System.arraycopy(bytes, 0, temp, 4, bytes.length);
         return temp;
     }
 
-    public static String BytesToString(byte[] src, int offset) {
-        int len = BytesToInt(src, offset);
+    public static String bytesToString(byte[] src, int offset) {
+        int len = bytesToInt(src, offset);
         return new String(src, 4+offset, len);
     }
 
-    public static byte[] DumpWithValid(List<TableDefine.Type> typs, List<Object> datas) {
+    public static byte[] dumpWithValid(List<TableDefine.Type> typs, List<Object> datas) {
         int length = 0;
         for (int i = 0; i < typs.size(); i++) {
             switch (typs.get(i)) {
@@ -70,17 +83,17 @@ public class DataDump {
         for (int i = 0; i < typs.size(); i++) {
             switch (typs.get(i)) {
                 case INTEGER -> {
-                    byte[] intBytes = IntToBytes((int) datas.get(i));
+                    byte[] intBytes = intToBytes((int) datas.get(i));
                     System.arraycopy(intBytes, 0, result, offset, 4);
                     offset += 4;
                 }
                 case FLOAT -> {
-                    byte[] floatBytes = FloatToBytes((float) datas.get(i));
+                    byte[] floatBytes = floatToBytes((float) datas.get(i));
                     System.arraycopy(floatBytes, 0, result, offset, 4);
                     offset += 4;
                 }
                 case VARCHAR -> {
-                    byte[] stringBytes = StringToBytes((String) datas.get(i));
+                    byte[] stringBytes = stringToBytes((String) datas.get(i));
                     System.arraycopy(stringBytes, 0, result, offset, stringBytes.length);
                     offset += stringBytes.length;
                 }
@@ -88,7 +101,7 @@ public class DataDump {
         }
         return result;
     }
-    public static byte[] Dump(List<TableDefine.Type> typs, List<Object> datas) {
+    public static byte[] dump(List<TableDefine.Type> typs, List<Object> datas) {
         int length = 0;
         for (int i = 0; i < typs.size(); i++) {
             switch (typs.get(i)) {
@@ -101,17 +114,17 @@ public class DataDump {
         for (int i = 0; i < typs.size(); i++) {
             switch (typs.get(i)) {
                 case INTEGER -> {
-                    byte[] intBytes = IntToBytes((int) datas.get(i));
+                    byte[] intBytes = intToBytes((int) datas.get(i));
                     System.arraycopy(intBytes, 0, result, offset, 4);
                     offset += 4;
                 }
                 case FLOAT -> {
-                    byte[] floatBytes = FloatToBytes((float) datas.get(i));
+                    byte[] floatBytes = floatToBytes((float) datas.get(i));
                     System.arraycopy(floatBytes, 0, result, offset, 4);
                     offset += 4;
                 }
                 case VARCHAR -> {
-                    byte[] stringBytes = StringToBytes((String) datas.get(i));
+                    byte[] stringBytes = stringToBytes((String) datas.get(i));
                     System.arraycopy(stringBytes, 0, result, offset, stringBytes.length);
                     offset += stringBytes.length;
                 }
@@ -120,29 +133,29 @@ public class DataDump {
         return result;
     }
 
-    public static byte[] DumpSrc(byte[] src,int per_size, List<TableDefine.Type> typs, List<List<Object>> records) {
+    public static byte[] dumpSrc(byte[] src, int per_size, List<TableDefine.Type> typs, List<List<Object>> records) {
         for (int i = 0; i < records.size(); i++) {
-            byte[] temp = DumpWithValid(typs, records.get(i));
+            byte[] temp = dumpWithValid(typs, records.get(i));
             System.arraycopy(temp, 0, src, i * per_size, temp.length);
         }
         return src;
     }
 
-    public static List<Object> Load(List<TableDefine.Type> typs, byte[] src, int offset) {
+    public static List<Object> load(List<TableDefine.Type> typs, byte[] src, int offset) {
         List<Object> result = new ArrayList<>();
         for (int i = 0; i < typs.size(); i++) {
             switch (typs.get(i)) {
                 case INTEGER:
-                    result.add(BytesToInt(src, offset+1));
+                    result.add(bytesToInt(src, offset+1));
                     offset += 4;
                     break;
                 case FLOAT:
-                    result.add(BytesToFloat(src, offset+1));
+                    result.add(bytesToFloat(src, offset+1));
                     offset += 4;
                     break;
                 case VARCHAR:
-                    result.add(BytesToString(src, offset+1));
-                    offset += BytesToInt(src, offset+1) + 4;
+                    result.add(bytesToString(src, offset+1));
+                    offset += bytesToInt(src, offset+1) + 4;
                     break;
             }
         }
