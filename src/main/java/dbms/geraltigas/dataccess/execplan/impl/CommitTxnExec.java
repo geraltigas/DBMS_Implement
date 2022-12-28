@@ -2,6 +2,8 @@ package dbms.geraltigas.dataccess.execplan.impl;
 
 import dbms.geraltigas.buffer.TableBuffer;
 import dbms.geraltigas.dataccess.DiskManager;
+import dbms.geraltigas.dataccess.Executor;
+import dbms.geraltigas.dataccess.TransactionExecutor;
 import dbms.geraltigas.dataccess.execplan.ExecPlan;
 import dbms.geraltigas.exception.BlockException;
 import dbms.geraltigas.exception.DataDirException;
@@ -18,6 +20,7 @@ public class CommitTxnExec implements ExecPlan {
     @Autowired
     DiskManager diskManager;
     long threadId;
+
     @Override
     public void setThreadId(long threadId) {
         this.threadId = threadId;
@@ -26,6 +29,13 @@ public class CommitTxnExec implements ExecPlan {
     @Override
     public long getThreadId() {
         return threadId;
+    }
+
+    boolean isTxn;
+    Executor transactionExecutor;
+    public void setTxn(boolean txn, Executor executor) {
+        isTxn = txn;
+        this.transactionExecutor =  executor;
     }
 
     @Override

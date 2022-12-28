@@ -287,7 +287,9 @@ public class Worker implements Runnable {
                 Thread.yield();
             }
         });
-        return future.get();
+        String res = future.get();
+        workerPrint("Result: " + res);
+        return res;
     }
 
     private void workerPrint(String str) {

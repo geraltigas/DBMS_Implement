@@ -3,6 +3,7 @@ package dbms.geraltigas.dataccess;
 import dbms.geraltigas.buffer.BlockBuffer;
 import dbms.geraltigas.exception.BlockException;
 import dbms.geraltigas.exception.DataDirException;
+import dbms.geraltigas.format.indexs.IndexHeader;
 import dbms.geraltigas.format.tables.PageHeader;
 import dbms.geraltigas.format.tables.TableHeader;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -157,5 +158,10 @@ public class DiskManager { // TODO: change to thread safe, use lock manager to m
         } catch (BlockException | IOException e) {
             e.printStackTrace();
         }
+    }
+
+    public IndexHeader getIndexHeader(String tableName, String indexName) throws BlockException, DataDirException, IOException {
+        byte[] data = readBytesAt(tableName,AccessType.INDEX,indexName, 0, IndexHeader.INDEX_HEADER_LENGTH);
+        return new IndexHeader(data);
     }
 }

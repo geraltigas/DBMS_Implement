@@ -3,6 +3,8 @@ package dbms.geraltigas.dataccess.execplan.impl;
 import dbms.geraltigas.buffer.TableBuffer;
 import dbms.geraltigas.dataccess.DiskManager;
 import dbms.geraltigas.dataccess.ExecuteEngine;
+import dbms.geraltigas.dataccess.Executor;
+import dbms.geraltigas.dataccess.TransactionExecutor;
 import dbms.geraltigas.dataccess.execplan.ExecPlan;
 import dbms.geraltigas.exception.BlockException;
 import dbms.geraltigas.exception.DataDirException;
@@ -21,7 +23,12 @@ public class BeginTxnExec implements ExecPlan {
     @Autowired
     ExecuteEngine executeEngine;
     long threadId;
-
+    boolean isTxn;
+    Executor transactionExecutor;
+    public void setTxn(boolean txn, Executor executor) {
+        isTxn = txn;
+        this.transactionExecutor =  executor;
+    }
     @Override
     public void setThreadId(long threadId) {
         this.threadId = threadId;
@@ -31,6 +38,7 @@ public class BeginTxnExec implements ExecPlan {
     public long getThreadId() {
         return threadId;
     }
+
 
     @Override
     public String execute(String dataPath) throws IOException, DataTypeException, FieldNotFoundException, BlockException, DataDirException {

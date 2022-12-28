@@ -1,5 +1,6 @@
 package dbms.geraltigas.exec.worker.handler.impl;
 
+import dbms.geraltigas.bean.ApplicationContextUtils;
 import dbms.geraltigas.dataccess.ExecuteEngine;
 import dbms.geraltigas.dataccess.execplan.impl.CreateIndexExec;
 import dbms.geraltigas.exception.HandleException;
@@ -27,6 +28,7 @@ public class CreateIndexHandler implements Handler {
         String columnName = createIndex.getIndex().getColumnsNames().get(0);
         CreateIndexExec createIndexExec = new CreateIndexExec(indexName, tableName, columnName);
         createIndexExec.setThreadId(threadId);
+        ApplicationContextUtils.autowire(createIndexExec);
         executeEngine.addExecPlan(createIndexExec);
         return createIndexExec.hashCode();
     }

@@ -1,10 +1,15 @@
 package dbms.geraltigas.dataccess;
 
 import dbms.geraltigas.dataccess.execplan.ExecPlan;
+import dbms.geraltigas.exception.BlockException;
+import dbms.geraltigas.exception.DataDirException;
+import dbms.geraltigas.exception.DataTypeException;
+import dbms.geraltigas.exception.FieldNotFoundException;
 import lombok.SneakyThrows;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
+import java.io.IOException;
 import java.util.concurrent.ConcurrentLinkedDeque;
 
 @Component
@@ -25,7 +30,6 @@ public class NormalExecutor implements Executor {
         this.executeEngine = executeEngine;
     }
 
-    @SneakyThrows
     @Override
     public void run() {
         System.out.println("[ExecuteEngine] NormalExecutor begin");
@@ -33,7 +37,13 @@ public class NormalExecutor implements Executor {
                 if (execPlans.size() > 0) {
                     ExecPlan execPlan = execPlans.poll();
                     assert execPlan != null;
-                    String res = execPlan.execute(executeEngine.getDateDir());
+                    String res = null;
+                    try {
+                        res = execPlan.execute(executeEngine.getDateDir());
+                    } catch (IOException | DataTypeException | FieldNotFoundException | BlockException |
+                             DataDirException e) {
+                        throw new RuntimeException(e);
+                    }
                     executeEngine.addResult(execPlan.hashCode(), res);
                 }
         }

@@ -1,5 +1,7 @@
 package dbms.geraltigas.dataccess.execplan.impl;
 
+import dbms.geraltigas.dataccess.Executor;
+import dbms.geraltigas.dataccess.TransactionExecutor;
 import dbms.geraltigas.dataccess.execplan.ExecPlan;
 
 import java.io.File;
@@ -12,7 +14,12 @@ import java.util.Objects;
 public class DropExec implements ExecPlan {
     String tableName;
     private long threadId;
-
+    boolean isTxn;
+    Executor transactionExecutor;
+    public void setTxn(boolean txn, Executor executor) {
+        isTxn = txn;
+        this.transactionExecutor =  executor;
+    }
     public DropExec(String tableName) {
         this.tableName = tableName;
     }

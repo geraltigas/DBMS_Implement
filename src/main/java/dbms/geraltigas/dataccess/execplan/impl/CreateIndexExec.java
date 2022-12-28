@@ -1,19 +1,38 @@
 package dbms.geraltigas.dataccess.execplan.impl;
 
 import dbms.geraltigas.buffer.BlockBuffer;
+import dbms.geraltigas.dataccess.DiskManager;
+import dbms.geraltigas.dataccess.Executor;
+import dbms.geraltigas.dataccess.TransactionExecutor;
 import dbms.geraltigas.dataccess.execplan.ExecPlan;
+import dbms.geraltigas.exception.BlockException;
+import dbms.geraltigas.exception.DataDirException;
+import dbms.geraltigas.format.indexs.IndexHeader;
+import dbms.geraltigas.transaction.LockManager;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public class CreateIndexExec implements ExecPlan { // TODO: implement this
     String indexName;
     String tableName;
     String columnName;
+    @Autowired
+    LockManager lockManager;
+    @Autowired
+    DiskManager diskManager;
 
     private long threadId;
+    boolean isTxn;
+    Executor transactionExecutor;
+    public void setTxn(boolean txn, Executor executor) {
+        isTxn = txn;
+        this.transactionExecutor =  executor;
+    }
 
     public CreateIndexExec(String indexName, String tableName, String columnName) {
         this.indexName = indexName;
@@ -22,7 +41,7 @@ public class CreateIndexExec implements ExecPlan { // TODO: implement this
     }
 
     @Override
-    public String execute(String dataPath) throws IOException {
+    public String execute(String dataPath) throws IOException, BlockException, DataDirException {
         Path dataDir = Paths.get(dataPath);
         if (!dataDir.toFile().exists()) {
             return "Data path not exists";
@@ -38,7 +57,7 @@ public class CreateIndexExec implements ExecPlan { // TODO: implement this
             indexDir.toFile().mkdirs();
         }
 
-        Path indexFile = indexDir.resolve(indexName+".idx");
+        Path indexFile = indexDir.resolve(indexName+"["+tableName+"("+columnName+")"+"]"+".idx");
         if (indexFile.toFile().exists()) {
             return "Index already exists";
         }
@@ -49,7 +68,10 @@ public class CreateIndexExec implements ExecPlan { // TODO: implement this
         }
 
         // TODO: here should generic index data and write it to index file
+        long headerId = LockManager.computeId(tableName, DiskManager.AccessType.INDEX,indexName,0);
+        lockManager.lockWrite(headerId, threadId);
 
+        IndexHeader indexHeader = diskManager.getIndexHeader(tableName, indexName);
 
         return "Create index " + indexName + " on " + tableName+"."+columnName+ " success";
     }
@@ -62,4 +84,5 @@ public class CreateIndexExec implements ExecPlan { // TODO: implement this
     public long getThreadId() {
         return this.threadId;
     }
+
 }

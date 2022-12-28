@@ -1,5 +1,7 @@
 package dbms.geraltigas.dataccess.execplan;
 
+import dbms.geraltigas.dataccess.Executor;
+import dbms.geraltigas.dataccess.TransactionExecutor;
 import dbms.geraltigas.exception.BlockException;
 import dbms.geraltigas.exception.DataDirException;
 import dbms.geraltigas.exception.DataTypeException;
@@ -11,5 +13,6 @@ public interface ExecPlan {
     long threadId = 0;
     void setThreadId(long threadId);
     long getThreadId();
+    void setTxn(boolean txn, Executor executor);
     String execute(String dataPath) throws IOException, DataTypeException, FieldNotFoundException, BlockException, DataDirException;
 }

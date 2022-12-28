@@ -4,6 +4,8 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dbms.geraltigas.buffer.TableBuffer;
 import dbms.geraltigas.dataccess.DiskManager;
+import dbms.geraltigas.dataccess.Executor;
+import dbms.geraltigas.dataccess.TransactionExecutor;
 import dbms.geraltigas.dataccess.execplan.ExecPlan;
 import dbms.geraltigas.exception.DataDirException;
 import dbms.geraltigas.exception.DataTypeException;
@@ -25,6 +27,12 @@ public class CreateTableExec implements ExecPlan {
     private TableDefine.Type[] colTypes;
     private List<String>[] colAttrs;
     private long threadId;
+    boolean isTxn;
+    Executor transactionExecutor;
+    public void setTxn(boolean txn, Executor executor) {
+        isTxn = txn;
+        this.transactionExecutor =  executor;
+    }
 
     @Autowired
     private ObjectMapper objectMapper;

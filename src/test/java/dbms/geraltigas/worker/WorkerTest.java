@@ -32,12 +32,13 @@ class WorkerTest {
     @Test
     void authenticatedProcess() {
         try {
-            worker.authenticatedProcess("CREATE TABLE test2 (id2 INT, age2 INT, age3 INT, age4 INT);");
+//            worker.authenticatedProcess("CREATE TABLE test2 (id2 INT, age2 INT, age3 INT, age4 INT);");
 //            worker.authenticatedProcess("INSERT INTO test1 VALUES (1, 2, 3, 4);");
 //            worker.authenticatedProcess("INSERT INTO test1 VALUES (2, 3, 4, 5);");
 //            worker.authenticatedProcess("INSERT INTO test1 VALUES (3, 4, 5, 6);");
 //            worker.authenticatedProcess("SELECT * FROM test1;");
 //            worker.authenticatedProcess("DELETE FROM test1 WHERE id = 1;");
+            worker.authenticatedProcess("CREATE INDEX index1 ON test1(id);");
             while (true) {}
 //            worker.AuthenticatedProcess("DROP TABLE test1;");
             // SELECT age1 - age2 AS d, id FROM student WHERE id = age OR (age1 = 1 AND age2 = 2); //  SELECT * FROM test1;

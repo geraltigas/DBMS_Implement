@@ -50,8 +50,10 @@ public class ExecuteEngine {
     public void addExecPlan(ExecPlan execPlan) {
         if (transactions.containsKey(execPlan.getThreadId())) {
             // add execplan to transaction to shedule
+            execPlan.setTxn(true, transactions.get(execPlan.getThreadId()));
             transactions.get(execPlan.getThreadId()).addExecplan(execPlan);
         } else {
+            execPlan.setTxn(false,normalExecutor);
             normalExecutor.addExecplan(execPlan);
         }
     }
@@ -74,5 +76,6 @@ public class ExecuteEngine {
     private void beginDataAccessWatcher() {
         normalExecutor.setExecuteEngine(this);
         executorService.submit(normalExecutor);
+        System.out.println("[ExecuteEngine] NormalExecutor started");
     }
 }

@@ -9,9 +9,7 @@ import org.springframework.stereotype.Component;
 import java.io.*;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.LinkedList;
-import java.util.Objects;
+import java.util.*;
 
 @Component
 public class BlockBuffer {
@@ -119,6 +117,19 @@ public class BlockBuffer {
     public byte[] getBlockFromDisk(String tableName, DiskManager.AccessType type, String appendPath, int blockId) throws BlockException, IOException {
         long fromOffset = blockId * BLOCK_SIZE;
         long toOffset = fromOffset + BLOCK_SIZE;
+
+        if (type == DiskManager.AccessType.INDEX) {
+            Path indexPath = Paths.get(executeEngine.getDateDir(), "/indexes/"+tableName);
+            // for in indexpath dir
+            String[] dirList = indexPath.toFile().list();
+            String finalAppendPath = appendPath;
+            String[] filted = Arrays.stream(Objects.requireNonNull(dirList)).filter(s -> s.contains(finalAppendPath)).toArray(String[]::new);
+            if (filted.length == 0) {
+                throw new BlockException("index file not found");
+            }
+            appendPath = filted[0];
+        }
+
         Path path;
         switch (type) {
             case TABLE -> path = Paths.get(executeEngine.getDateDir()+ "/tables/" + tableName + ".tbl");

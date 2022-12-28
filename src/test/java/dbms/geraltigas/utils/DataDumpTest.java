@@ -5,6 +5,8 @@ import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -54,5 +56,53 @@ class DataDumpTest {
         assertEquals(datas.get(0),result.get(0));
         assertEquals(datas.get(1),result.get(1));
         assertEquals(datas.get(2),result.get(2));
+    }
+
+    @Test
+    void run() throws InterruptedException {
+        AtomicReference<Integer> value = new AtomicReference<>(123456789);
+        ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
+        Thread thread = new Thread(() -> {
+            ReentrantReadWriteLock.ReadLock readWriteLock = lock.readLock();
+            readWriteLock.lock();
+            for (int i = 0; i < 10; i++) {
+                try {
+                    Thread.sleep(1000);
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
+                System.out.println("thread1: "+i+" "+value);
+            }
+            ReentrantReadWriteLock.WriteLock writeLock = lock.writeLock();
+            System.out.println("thread1 try to upgrade lock");
+
+            writeLock.lock();
+            value.set(987654321);
+            for (int i = 0; i < 10; i++) {
+                try {
+                    Thread.sleep(1000);
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
+                System.out.println("thread1: "+i+" "+value);
+            }
+            readWriteLock.unlock();
+        });
+        Thread thread1 = new Thread(() -> {
+            ReentrantReadWriteLock.ReadLock readWriteLock = lock.readLock();
+            readWriteLock.lock();
+            for (int i = 0; i < 20; i++) {
+                try {
+                    Thread.sleep(1000);
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
+                System.out.println("thread2: "+i+" "+value);
+            }
+            readWriteLock.unlock();
+        });
+        thread.start();
+        thread1.start();
+        while (true){}
     }
 }
