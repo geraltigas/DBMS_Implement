@@ -10,7 +10,7 @@ import dbms.geraltigas.exception.FieldNotFoundException;
 
 import java.io.IOException;
 
-public class UpdateExec implements ExecPlan { // TODO: implement this
+public class UpdateExec implements ExecPlan {
     private long threadId;
     boolean isTxn;
     Executor transactionExecutor;

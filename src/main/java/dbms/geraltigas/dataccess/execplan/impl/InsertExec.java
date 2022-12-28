@@ -23,7 +23,7 @@ import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
 
-public class InsertExec implements ExecPlan {
+public class InsertExec implements ExecPlan { // TODO:  change to lock and index
     String tableName;
     String[] colNames;
     List<List<Expression>> values;

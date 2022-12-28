@@ -17,7 +17,7 @@ import java.util.List;
 
 import static dbms.geraltigas.buffer.BlockBuffer.BLOCK_SIZE;
 
-public class SelectExec implements ExecPlan {
+public class SelectExec implements ExecPlan { // TODO:  change to lock and index
 
     List<Expression> expressions;
     private long threadId;

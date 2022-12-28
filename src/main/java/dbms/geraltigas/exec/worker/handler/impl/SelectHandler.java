@@ -62,22 +62,22 @@ public class SelectHandler implements Handler {
             if (selectExpressionItem.getAlias() != null) {
                 names.add(selectExpressionItem.getAlias().getName());
                 net.sf.jsqlparser.expression.Expression expression = selectExpressionItem.getExpression();
-                if (expression instanceof Subtraction subtraction) {
-                    Expression expression1 = new Expression();
-                    expression1.setLeft(new Expression(null,null,subtraction.getLeftExpression().toString(),null ,Expression.Op.NULL));
-                    expression1.setRight(new Expression(null,null,subtraction.getRightExpression().toString(), null, Expression.Op.NULL));
-                    expression1.setOp(Expression.Op.SUBTRACT);
-                    expressions.add(expression1);
-                    continue;
-                }
-                if (expression instanceof Addition addition) {
-                    Expression expression1 = new Expression();
-                    expression1.setLeft(new Expression(null,null,addition.getLeftExpression().toString(), null, Expression.Op.NULL));
-                    expression1.setRight(new Expression(null,null,addition.getRightExpression().toString(), null, Expression.Op.NULL));
-                    expression1.setOp(Expression.Op.PLUS);
-                    expressions.add(expression1);
-                    continue;
-                }
+//                if (expression instanceof Subtraction subtraction) {
+//                    Expression expression1 = new Expression();
+//                    expression1.setLeft(new Expression(null,null,subtraction.getLeftExpression().toString(),null ,Expression.Op.NULL));
+//                    expression1.setRight(new Expression(null,null,subtraction.getRightExpression().toString(), null, Expression.Op.NULL));
+//                    expression1.setOp(Expression.Op.SUBTRACT);
+//                    expressions.add(expression1);
+//                    continue;
+//                }
+//                if (expression instanceof Addition addition) {
+//                    Expression expression1 = new Expression();
+//                    expression1.setLeft(new Expression(null,null,addition.getLeftExpression().toString(), null, Expression.Op.NULL));
+//                    expression1.setRight(new Expression(null,null,addition.getRightExpression().toString(), null, Expression.Op.NULL));
+//                    expression1.setOp(Expression.Op.PLUS);
+//                    expressions.add(expression1);
+//                    continue;
+//                }
                 throw new ExpressionException("expression not supported");
             } else {
                 names.add(selectExpressionItem.getExpression().toString());
@@ -100,6 +100,7 @@ public class SelectHandler implements Handler {
             return null;
         }
         switch (expression.getClass().getSimpleName()) {
+            // bool operations
             case "AndExpression" -> {
                 expression_.setLeft(parseExpression(((AndExpression) expression).getLeftExpression()));
                 expression_.setRight(parseExpression(((AndExpression) expression).getRightExpression()));
@@ -118,6 +119,7 @@ public class SelectHandler implements Handler {
                 expression_.setOp(Expression.Op.EQUAL);
                 return expression_;
             }
+            //  column value
             case "Column" -> {
                 expression_.setLeft(null);
                 expression_.setRight(null);
@@ -125,6 +127,7 @@ public class SelectHandler implements Handler {
                 expression_.setOp(Expression.Op.NULL);
                 return expression_;
             }
+            // constant
             case "LongValue" -> {
                 expression_.setLeft(null);
                 expression_.setRight(null);
@@ -149,10 +152,11 @@ public class SelectHandler implements Handler {
                 expression_.setOp(Expression.Op.STRING_VALUE);
                 return expression_;
             }
+            // perentheses
             case "Parenthesis" -> {
                 return parseExpression(((Parenthesis) expression).getExpression());
             }
-            //  取消对运算的支持
+            // disable the support for arithmetic operations
 //            case "Subtraction" -> {
 //                expression_.setLeft(parseExpression(((Subtraction) expression).getLeftExpression()));
 //                expression_.setRight(parseExpression(((Subtraction) expression).getRightExpression()));

@@ -11,7 +11,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
-public class DropExec implements ExecPlan {
+public class DropExec implements ExecPlan { // TODO:  change to lock and index
     String tableName;
     private long threadId;
     boolean isTxn;

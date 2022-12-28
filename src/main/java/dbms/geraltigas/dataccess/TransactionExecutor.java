@@ -5,9 +5,13 @@ import dbms.geraltigas.exception.BlockException;
 import dbms.geraltigas.exception.DataDirException;
 import dbms.geraltigas.exception.DataTypeException;
 import dbms.geraltigas.exception.FieldNotFoundException;
+import dbms.geraltigas.transaction.changelog.ChangeLog;
 import lombok.SneakyThrows;
 
+import javax.swing.event.ChangeEvent;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.ConcurrentLinkedDeque;
 
 public class TransactionExecutor implements Executor{
@@ -16,7 +20,11 @@ public class TransactionExecutor implements Executor{
 
     private ExecuteEngine executeEngine;
 
-public TransactionExecutor(long threadId) {
+    private List<ChangeLog> changeLogs = new ArrayList<>();
+
+
+
+    public TransactionExecutor(long threadId) {
         this.threadId = threadId;
     }
 
@@ -28,6 +36,11 @@ public TransactionExecutor(long threadId) {
     @Override
     public void setExecuteEngine(ExecuteEngine executeEngine) {
         this.executeEngine = executeEngine;
+    }
+
+    @Override
+    public synchronized void addChangeLog(ChangeLog changeLog) {
+        changeLogs.add(changeLog);
     }
 
     @Override

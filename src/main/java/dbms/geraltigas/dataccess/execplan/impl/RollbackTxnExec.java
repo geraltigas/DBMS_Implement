@@ -13,7 +13,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 import java.io.IOException;
 
-public class RollbackTxnExec implements ExecPlan {
+public class RollbackTxnExec implements ExecPlan { // TODO:  change to lock and index
     @Autowired
     TableBuffer tableBuffer;
 

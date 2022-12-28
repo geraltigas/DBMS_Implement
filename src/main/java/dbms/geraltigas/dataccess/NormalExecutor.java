@@ -5,6 +5,7 @@ import dbms.geraltigas.exception.BlockException;
 import dbms.geraltigas.exception.DataDirException;
 import dbms.geraltigas.exception.DataTypeException;
 import dbms.geraltigas.exception.FieldNotFoundException;
+import dbms.geraltigas.transaction.changelog.ChangeLog;
 import lombok.SneakyThrows;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -31,6 +32,10 @@ public class NormalExecutor implements Executor {
     }
 
     @Override
+    public void addChangeLog(ChangeLog changeLog) {
+    }
+
+    @Override
     public void run() {
         System.out.println("[ExecuteEngine] NormalExecutor begin");
         while (true) {
@@ -48,4 +53,6 @@ public class NormalExecutor implements Executor {
                 }
         }
     }
+
+
 }

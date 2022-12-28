@@ -2,9 +2,13 @@ package dbms.geraltigas.format.indexs;
 
 import dbms.geraltigas.format.tables.TableDefine;
 import dbms.geraltigas.utils.DataDump;
+import lombok.Getter;
+import lombok.Setter;
 
 import java.util.List;
 
+@Getter
+@Setter
 public class IndexHeader {
     int indexHashArraySize = 1024;
     int indexDataPageNum = 1024; // the page number of the index data part
@@ -15,6 +19,8 @@ public class IndexHeader {
         this.indexHashArraySize = indexHashArraySize;
         this.indexDataPageNum = indexDataPageNum;
     }
+
+    public IndexHeader(){}
 
     public IndexHeader(byte[] header) {
         indexHashArraySize = DataDump.bytesToInt(header, 0);

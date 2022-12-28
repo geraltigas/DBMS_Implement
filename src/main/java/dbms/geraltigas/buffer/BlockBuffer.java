@@ -26,7 +26,7 @@ public class BlockBuffer {
         for (Page page : this.pageArrayBuffer) {
             if (page != null && page.isWrited) {
                 try {
-                    writeBlockToDisk(page.tableName, page.type, page.blockId, page.data);
+                    writeBlockToDisk(page.tableName, page.type, page.appendPath ,page.blockId, page.data);
                     setPage(page.tableName, page.type, page.appendPath, page.blockId, page, false);
                 } catch (IOException e) {
                     e.printStackTrace();
@@ -95,7 +95,7 @@ public class BlockBuffer {
         Page page = pageArrayBuffer[hashCode];
         if (page.blockId != blockId || !Objects.equals(page.tableName, tableName) || page.type != type || !Objects.equals(page.appendPath, appendPath)) {
             if (page.isWrited) {
-                writeBlockToDisk(page.tableName, page.type, page.blockId, page.data);
+                writeBlockToDisk(page.tableName, page.type, page.appendPath , page.blockId, page.data);
                 Page temp = new Page(tableName,type,appendPath,blockId, getBlockFromDisk(tableName, type, appendPath, blockId));
                 pageArrayBuffer[hashCode] = temp;
                 return temp;
@@ -145,13 +145,24 @@ public class BlockBuffer {
         return data;
     }
 
-    public boolean writeBlockToDisk(String tableName, DiskManager.AccessType type, int blockId, byte[] data) throws IOException, BlockException {
+    public boolean writeBlockToDisk(String tableName, DiskManager.AccessType type,String appendPath, int blockId, byte[] data) throws IOException, BlockException {
         long fromOffset = blockId * BLOCK_SIZE;
         long toOffset = fromOffset + BLOCK_SIZE;
         Path path = null;
+        if (type == DiskManager.AccessType.INDEX) {
+            Path indexPath = Paths.get(executeEngine.getDateDir(), "/indexes/"+tableName);
+            // for in indexpath dir
+            String[] dirList = indexPath.toFile().list();
+            String finalAppendPath = appendPath;
+            String[] filted = Arrays.stream(Objects.requireNonNull(dirList)).filter(s -> s.contains(finalAppendPath)).toArray(String[]::new);
+            if (filted.length == 0) {
+                throw new BlockException("index file not found");
+            }
+            appendPath = filted[0];
+        }
         switch (type) {
             case TABLE -> path = Paths.get(executeEngine.getDateDir()+ "/tables/" + tableName + ".tbl");
-            case INDEX -> path = Paths.get(executeEngine.getDateDir()+ "/indexes/" +tableName+"/"+ type + ".idx");
+            case INDEX -> path = Paths.get(executeEngine.getDateDir()+ "/indexes/" +tableName+"/"+ appendPath);
             case BULK -> path = Paths.get(executeEngine.getDateDir()+ "/tables/" + tableName + ".bulk");
             default -> throw new BlockException("Invalid access type");
         }

@@ -159,13 +159,13 @@ public class LockManager { // add read or write lock to every page
         return null;
     }
 
-    public static long computeId(String tableName, DiskManager.AccessType type,String appendName, int pageNum) {
+    public static long computeId(String tableName, DiskManager.AccessType type,String appendName, int pageIndex) {
         // compute id from table name, access type, append name and page number
         long id = tableName.hashCode();
         id<<=32;
         id = id * 100 + type.ordinal();
         id = id * 100 + ((appendName == null) ? 0 :appendName.hashCode());
-        id = id * 100 + pageNum;
+        id = id * 100 + pageIndex;
         return id;
     }
 }

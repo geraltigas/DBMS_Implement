@@ -86,32 +86,32 @@ public class Expression {
                 Object rightValue = right.eval(typeMap, map);
                 yield (Boolean) leftValue || (Boolean) rightValue;
             }
-            case SUBTRACT: {
-                Object leftValue = left.eval(typeMap, map);
-                Object rightValue = right.eval(typeMap, map);
-                switch (typeMap.get(left.name)) {
-                    case INTEGER -> {
-                        yield (Integer) leftValue - (Integer) rightValue;
-                    }
-                    case FLOAT -> {
-                        yield (Float) leftValue - (Float) rightValue;
-                    }
-                    default -> throw new IllegalStateException("Unexpected value: " + typeMap.get(leftValue.getClass().getName()));
-                }
-            }
-            case PLUS:{
-                Object leftValue = left.eval(typeMap, map);
-                Object rightValue = right.eval(typeMap, map);
-                switch (typeMap.get(left.name)) {
-                    case INTEGER -> {
-                        yield (Integer) leftValue + (Integer) rightValue;
-                    }
-                    case FLOAT -> {
-                        yield (Float) leftValue + (Float) rightValue;
-                    }
-                    default -> throw new IllegalStateException("Unexpected value: " + typeMap.get(leftValue.getClass().getName()));
-                }
-            }
+//            case SUBTRACT: {
+//                Object leftValue = left.eval(typeMap, map);
+//                Object rightValue = right.eval(typeMap, map);
+//                switch (typeMap.get(left.name)) {
+//                    case INTEGER -> {
+//                        yield (Integer) leftValue - (Integer) rightValue;
+//                    }
+//                    case FLOAT -> {
+//                        yield (Float) leftValue - (Float) rightValue;
+//                    }
+//                    default -> throw new IllegalStateException("Unexpected value: " + typeMap.get(leftValue.getClass().getName()));
+//                }
+//            }
+//            case PLUS:{
+//                Object leftValue = left.eval(typeMap, map);
+//                Object rightValue = right.eval(typeMap, map);
+//                switch (typeMap.get(left.name)) {
+//                    case INTEGER -> {
+//                        yield (Integer) leftValue + (Integer) rightValue;
+//                    }
+//                    case FLOAT -> {
+//                        yield (Float) leftValue + (Float) rightValue;
+//                    }
+//                    default -> throw new IllegalStateException("Unexpected value: " + typeMap.get(leftValue.getClass().getName()));
+//                }
+//            }
             case EQUAL:{
                 Object leftValue = left.eval(typeMap, map);
                 Object rightValue = right.eval(typeMap, map);
@@ -162,8 +162,8 @@ public class Expression {
     public enum Op {
         OR,
         AND,
-        SUBTRACT,
-        PLUS,
+//        SUBTRACT,
+//        PLUS,
         NULL, // MEANS COLUMN
         EQUAL,
         LONG_VALUE,

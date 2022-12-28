@@ -1,9 +1,11 @@
 package dbms.geraltigas.format.tables;
 
 import dbms.geraltigas.exception.DataTypeException;
+import dbms.geraltigas.utils.Pair;
 import lombok.*;
 
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 
@@ -21,6 +23,8 @@ public class TableDefine implements Serializable {
 
 
     private int recordLength;
+
+
 
     public enum Type{
         INTEGER,
