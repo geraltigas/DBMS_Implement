@@ -15,7 +15,7 @@ import java.util.ArrayList;
 
 
 @Component
-public class DiskManager { // TODO: change to thread safe, use lock manager to manager it.
+public class DiskManager {
 
     @Autowired
     BlockBuffer blockBuffer;

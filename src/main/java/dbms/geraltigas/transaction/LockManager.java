@@ -1,15 +1,11 @@
 package dbms.geraltigas.transaction;
 
 import dbms.geraltigas.dataccess.DiskManager;
-import dbms.geraltigas.format.tables.TableDefine;
 import lombok.Getter;
 import lombok.Setter;
 import org.springframework.stereotype.Component;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.TreeMap;
+import java.util.*;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -21,7 +17,7 @@ public class LockManager { // add read or write lock to every page
     class PageLockInfo {
         LockType lockType;
         int lockNum;
-        long transactionId;
+        List<Long> txnIdList = new ArrayList<>();
         Condition condition;
     }
 
@@ -38,8 +34,9 @@ public class LockManager { // add read or write lock to every page
         if (lockMap.containsKey(pageId)) {
             PageLockInfo pageLockInfo = lockMap.get(pageId);
             if (pageLockInfo.lockType == LockType.WRITE) {
-                if (pageLockInfo.transactionId == transactionId) {
+                if (pageLockInfo.txnIdList.contains(transactionId)) {
                     pageLockInfo.lockNum++;
+                    pageLockInfo.txnIdList.add(transactionId);
                 } else {
                     try {
                         pageLockInfo.condition.await();
@@ -50,13 +47,15 @@ public class LockManager { // add read or write lock to every page
                 }
             } else {
                 pageLockInfo.lockNum++;
+                pageLockInfo.txnIdList.add(transactionId);
             }
         } else {
             PageLockInfo pageLockInfo = new PageLockInfo();
             pageLockInfo.lockType = LockType.READ;
             pageLockInfo.lockNum = 1;
             pageLockInfo.condition = mutex.newCondition();
-            pageLockInfo.transactionId = transactionId;
+            pageLockInfo.txnIdList.clear();
+            pageLockInfo.txnIdList.add(transactionId);
             lockMap.put(pageId, pageLockInfo);
         }
         mutex.unlock();
@@ -67,8 +66,9 @@ public class LockManager { // add read or write lock to every page
         if (lockMap.containsKey(pageId)) {
             PageLockInfo pageLockInfo = lockMap.get(pageId);
             if (pageLockInfo.lockType == LockType.WRITE) {
-                if (pageLockInfo.transactionId == transactionId) {
+                if (pageLockInfo.txnIdList.contains(transactionId)) {
                     pageLockInfo.lockNum++;
+                    pageLockInfo.txnIdList.add(transactionId);
                 } else {
                     try {
                         pageLockInfo.condition.await();
@@ -90,7 +90,7 @@ public class LockManager { // add read or write lock to every page
             pageLockInfo.lockType = LockType.WRITE;
             pageLockInfo.lockNum = 1;
             pageLockInfo.condition = mutex.newCondition();
-            pageLockInfo.transactionId = transactionId;
+            pageLockInfo.txnIdList.add(transactionId);
             lockMap.put(pageId, pageLockInfo);
         }
         mutex.unlock();
@@ -100,8 +100,9 @@ public class LockManager { // add read or write lock to every page
         mutex.lock();
         if (lockMap.containsKey(pageId)) {
             PageLockInfo pageLockInfo = lockMap.get(pageId);
-            if (pageLockInfo.transactionId == transactionId) {
+            if (pageLockInfo.txnIdList.contains(transactionId)) {
                 pageLockInfo.lockNum--;
+                pageLockInfo.txnIdList.remove(transactionId);
                 if (pageLockInfo.lockNum == 0) {
                     lockMap.remove(pageId);
                     pageLockInfo.condition.signalAll();
@@ -115,7 +116,7 @@ public class LockManager { // add read or write lock to every page
         mutex.lock();
         List<Long> pageIdList = new ArrayList<>();
         for (Map.Entry<Long, PageLockInfo> entry : lockMap.entrySet()) {
-            if (entry.getValue().transactionId == transactionId) {
+            if (entry.getValue().txnIdList.contains(transactionId)) {
                 pageIdList.add(entry.getKey());
             }
         }
@@ -125,12 +126,23 @@ public class LockManager { // add read or write lock to every page
         mutex.unlock();
     }
 
-    public void updateLock(long pageId, long transactionId) {
+    public void upgradeLock(long pageId, long transactionId) {
         mutex.lock();
         if (lockMap.containsKey(pageId)) {
             PageLockInfo pageLockInfo = lockMap.get(pageId);
-            if (pageLockInfo.transactionId == transactionId) {
-                pageLockInfo.lockType = LockType.WRITE;
+            if (pageLockInfo.txnIdList.contains(transactionId)) {
+                pageLockInfo.lockNum--;
+                if (pageLockInfo.lockNum == 0) {
+                    pageLockInfo.lockType = LockType.WRITE;
+                    pageLockInfo.lockNum = 1;
+                }else {
+                    try {
+                        pageLockInfo.condition.await();
+                        upgradeLock(pageId, transactionId);
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                }
             }
         }
         mutex.unlock();
