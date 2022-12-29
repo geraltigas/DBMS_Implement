@@ -162,4 +162,11 @@ public class DataDump {
         return result;
     }
 
+    public static List<Object> loadAll(List<List<TableDefine.Type>> b, List<byte[]> record) {
+        List<Object> result = new ArrayList<>();
+        for (int i = 0; i < b.size(); i++) {
+            result.addAll(load(b.get(i), record.get(i), 0));
+        }
+        return result;
+    }
 }

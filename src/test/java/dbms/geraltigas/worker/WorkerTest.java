@@ -33,12 +33,19 @@ class WorkerTest {
     void authenticatedProcess() {
         try {
 //            worker.authenticatedProcess("CREATE TABLE test1 (id INT, age INT, age1 INT, age2 INT);");
-//            worker.authenticatedProcess("INSERT INTO test1 VALUES (1, 2, 3, 4);");
+//            worker.authenticatedProcess("CREATE TABLE test2 (id1 INT, age1 INT, age11 INT, age21 INT);");
+            worker.authenticatedProcess("INSERT INTO test1 VALUES (1, 2, 3, 4);");
+//            worker.authenticatedProcess("INSERT INTO test2 VALUES (2, 3, 4, 5);");
+//            worker.authenticatedProcess("INSERT INTO test2 VALUES (3, 4, 5, 6);");
 //            worker.authenticatedProcess("INSERT INTO test1 VALUES (2, 3, 4, 5);");
 //            worker.authenticatedProcess("INSERT INTO test1 VALUES (3, 4, 5, 6);");
+            worker.authenticatedProcess("SELECT * FROM test1;");
+            worker.authenticatedProcess("SELECT id,age1 - age2 AS delta FROM test1 WHERE id = 1;");
 //            worker.authenticatedProcess("SELECT * FROM test1;");
-            worker.authenticatedProcess("DELETE FROM test1 WHERE (id = 1) AND (age = 2);");
+//            worker.authenticatedProcess("SELECT * FROM test2;");
+//            worker.authenticatedProcess("SHOW tables;");
 //            worker.authenticatedProcess("CREATE INDEX index1 ON test1(age);");
+//            worker.authenticatedProcess("DELETE FROM test1 WHERE (id = 1);");
             while (true) {}
 //            worker.AuthenticatedProcess("DROP TABLE test1;");
             // SELECT age1 - age2 AS d, id FROM student WHERE id = age OR (age1 = 1 AND age2 = 2); //  SELECT * FROM test1;

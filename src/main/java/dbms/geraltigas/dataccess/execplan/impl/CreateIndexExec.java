@@ -81,9 +81,7 @@ public class CreateIndexExec implements ExecPlan {
             return "Create index " + indexName + " on " + tableName+"."+columnName+ " failed";
         }
 
-        if (isTxn) {
-            transactionExecutor.addChangeLog(new CreateFileChangeLog(indexFile.toString()));
-        }
+        if (isTxn) transactionExecutor.addChangeLog(new CreateFileChangeLog(indexFile.toString()));
 
         long headerId = LockManager.computeId(tableName, DiskManager.AccessType.INDEX,indexName,0);
         lockManager.lockWrite(headerId, threadId);
@@ -138,7 +136,7 @@ public class CreateIndexExec implements ExecPlan {
                 indexData.add(values.get(indexColumnIndex));
                 indexData.add(i+1);
                 indexData.add(j);
-                byte[] indexDataBytes = DataDump.dump(indexTypes, indexData);
+                byte[] indexDataBytes = DataDump.dumpWithValid(indexTypes, indexData);
                 int hash = values.get(indexColumnIndex).toString().hashCode();
                 hash = hash % indexHeader.getIndexHashArraySize();
                 IndexPageHeader indexPageHeader = diskManager.getIndexPageHeader(tableName, indexName, hash+1);
@@ -156,7 +154,7 @@ public class CreateIndexExec implements ExecPlan {
         return "Create index " + indexName + " on " + tableName+"."+columnName+ " success";
     }
 
-    private byte[] getIndexDataFromRecord(byte[] record, int offset, int length) { // TODO: implement this
+    private byte[] getIndexDataFromRecord(byte[] record, int offset, int length) {
         byte[] indexData = new byte[length];
         System.arraycopy(record, offset, indexData, 0, length);
         return indexData;

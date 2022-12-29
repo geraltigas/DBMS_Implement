@@ -4,7 +4,6 @@ import dbms.geraltigas.buffer.BlockBuffer;
 import dbms.geraltigas.dataccess.DiskManager;
 import dbms.geraltigas.buffer.TableBuffer;
 import dbms.geraltigas.dataccess.Executor;
-import dbms.geraltigas.dataccess.TransactionExecutor;
 import dbms.geraltigas.dataccess.execplan.ExecPlan;
 import dbms.geraltigas.exception.BlockException;
 import dbms.geraltigas.exception.DataDirException;
@@ -13,17 +12,19 @@ import dbms.geraltigas.exception.FieldNotFoundException;
 import dbms.geraltigas.format.tables.PageHeader;
 import dbms.geraltigas.format.tables.TableDefine;
 import dbms.geraltigas.format.tables.TableHeader;
+import dbms.geraltigas.transaction.LockManager;
+import dbms.geraltigas.transaction.changelog.impl.RecordChangeLog;
+import dbms.geraltigas.transaction.changelog.impl.TableHeaderChangeLog;
+import dbms.geraltigas.transaction.changelog.impl.TablePageHeaderChangeLog;
 import dbms.geraltigas.utils.DataDump;
 import net.sf.jsqlparser.expression.Expression;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.LinkedList;
-import java.util.List;
+import java.util.*;
+import java.util.concurrent.locks.Lock;
 
-public class InsertExec implements ExecPlan { // TODO:  change to lock and index
+public class InsertExec implements ExecPlan {
     String tableName;
     String[] colNames;
     List<List<Expression>> values;
@@ -33,6 +34,8 @@ public class InsertExec implements ExecPlan { // TODO:  change to lock and index
 
     @Autowired
     DiskManager diskManager;
+    @Autowired
+    LockManager lockManager;
     private long threadId;
     boolean isTxn;
     Executor transactionExecutor;
@@ -98,6 +101,8 @@ public class InsertExec implements ExecPlan { // TODO:  change to lock and index
     }
 
     private String insertRecords(List<List<Object>> records, List<TableDefine.Type> colTypes, List<List<String>> colAttrs) throws BlockException, IOException, DataDirException, DataTypeException { // TODO: need massive test
+        long tableHeaderId = LockManager.computeId(tableName, DiskManager.AccessType.TABLE,null,0);
+        lockManager.lockWrite(tableHeaderId,threadId);
         TableHeader tableHeader = diskManager.getTableHeader(tableName);
         int per_size = CalculateLength(colTypes,colAttrs);
         int writeSize = per_size * records.size();
@@ -109,12 +114,15 @@ public class InsertExec implements ExecPlan { // TODO:  change to lock and index
                 pageNum++;
             }
             int recordPerBlock = (BlockBuffer.BLOCK_SIZE - PageHeader.PAGE_HEADER_LENGTH)/per_size;
-            List<PageHeader> tableHeaders = new ArrayList<>(pageNum);
+            List<PageHeader> pageHeaders = new ArrayList<>(pageNum);
             for (int i = 0; i < pageNum; i++) {
-                tableHeaders.add(new PageHeader());
+                pageHeaders.add(new PageHeader());
             }
             for (int i = 0; i < pageNum; i++) {
-                PageHeader pageHeader = tableHeaders.get(i);
+                PageHeader pageHeader = pageHeaders.get(i);
+                PageHeader oldPageHeader = new PageHeader(pageHeader);
+                long pageId = LockManager.computeId(tableName, DiskManager.AccessType.TABLE,null,i+1);
+                lockManager.lockWrite(pageId,threadId);
                 if (i == pageNum - 1) {
                     pageHeader.setRecordLength(per_size);
                     pageHeader.setRecordNum(records.size()- recordPerBlock*i);
@@ -125,32 +133,56 @@ public class InsertExec implements ExecPlan { // TODO:  change to lock and index
                     pageHeader.setLastRecordOffset(4096 - per_size*recordPerBlock);
                 }
                 byte[] dataT = new byte[pageHeader.getRecordNum()*pageHeader.getRecordLength()];
-                System.arraycopy(data,per_size*recordPerBlock*i,dataT,0,dataT.length);
-                diskManager.writePage(tableName,i+1,0,tableHeaders.get(i).ToBytes());
-                diskManager.writePage(tableName,i+1,pageHeader.getLastRecordOffset(),dataT);
+                int formerRecordNum = (pageNum-1)*recordPerBlock;
+                System.arraycopy(data,formerRecordNum*per_size,dataT,0,dataT.length);
+                int recordNum = dataT.length/pageHeader.getRecordLength();
+                byte[] tempData = new byte[pageHeader.getRecordLength()];
+                if (isTxn) transactionExecutor.addChangeLog(new TablePageHeaderChangeLog(tableName,i+1,oldPageHeader));
+                diskManager.writePageHeader(tableName,i+1,new PageHeader(per_size));
+                for (int j = 0; j < recordNum; j++) {
+                    System.arraycopy(dataT,j * per_size,tempData,0,per_size);
+                    if (isTxn) transactionExecutor.addChangeLog(new RecordChangeLog(tableName,i+1,j,new byte[per_size]));
+                    diskManager.writeOneRecord(tableName,i+1,j,tempData);
+                }
+                diskManager.writePageHeader(tableName,i+1,pageHeader);
             }
+            TableHeader oldTableHeader = new TableHeader(tableHeader);
             tableHeader.setTableLength(pageNum);
+            if (isTxn) transactionExecutor.addChangeLog(new TableHeaderChangeLog(tableName,oldTableHeader));
             diskManager.setTableHeader(tableName,tableHeader);
         }else {
             int pageNum = tableHeader.getTableLength();
+            long pageId = LockManager.computeId(tableName, DiskManager.AccessType.TABLE,null,pageNum);
+            lockManager.lockWrite(pageId,threadId);
             byte[] pageHeaderBytes = diskManager.readBytesAt(tableName, DiskManager.AccessType.TABLE, null, (long) (pageNum)*BlockBuffer.BLOCK_SIZE, PageHeader.PAGE_HEADER_LENGTH);
             PageHeader pageHeader = new PageHeader(pageHeaderBytes);
             int recordPerBlock = (BlockBuffer.BLOCK_SIZE - PageHeader.PAGE_HEADER_LENGTH)/per_size;
             int firstPageRecordNum = pageHeader.getRecordNum();
             byte[] dataT = new byte[(records.size() > recordPerBlock - firstPageRecordNum ? recordPerBlock - firstPageRecordNum : records.size())*per_size];
             System.arraycopy(data,0,dataT,0,dataT.length);
+            PageHeader oldPageHeader = new PageHeader(pageHeader);
+            int oldRecordNum = pageHeader.getRecordNum();
             pageHeader.setRecordNum(records.size() > recordPerBlock - firstPageRecordNum ?recordPerBlock : records.size()+firstPageRecordNum);
             pageHeader.setLastRecordOffset(pageHeader.getLastRecordOffset() - dataT.length);
-            diskManager.writePage(tableName,pageNum,pageHeader.getLastRecordOffset(),dataT);
-            diskManager.writePage(tableName,pageNum,0,pageHeader.ToBytes());
-            if (records.size() > firstPageRecordNum) {
-                int recordNum = records.size() - firstPageRecordNum;
+
+            if (isTxn) transactionExecutor.addChangeLog(new TablePageHeaderChangeLog(tableName,pageNum,oldPageHeader));
+            diskManager.writePageHeader(tableName,pageNum,pageHeader);
+            int recordNum = dataT.length/pageHeader.getRecordLength();
+            byte[] tempData = new byte[pageHeader.getRecordLength()];
+            for (int i = 0; i < recordNum; i++) {
+                if (isTxn) transactionExecutor.addChangeLog(new RecordChangeLog(tableName,pageNum,oldRecordNum+i,new byte[per_size]));
+                System.arraycopy(dataT,i * per_size,tempData,0,per_size);
+                diskManager.writeOneRecord(tableName,pageNum,oldRecordNum+i,tempData);
+            }
+            if (records.size() > recordNum) {
+                recordNum = records.size() - recordNum;
                 int pageNumT = recordNum/recordPerBlock;
                 if (recordNum%recordPerBlock != 0) {
                     pageNumT++;
                 }
                 for (int i = 0; i < pageNumT; i++) {
                     PageHeader pageHeaderT = new PageHeader();
+                    PageHeader oldPageHeaderT = new PageHeader(pageHeaderT);
                     if (i == pageNumT - 1) {
                         pageHeaderT.setRecordLength(per_size);
                         pageHeaderT.setRecordNum(recordNum - recordPerBlock*i);
@@ -162,13 +194,24 @@ public class InsertExec implements ExecPlan { // TODO:  change to lock and index
                     }
                     byte[] dataTT = new byte[pageHeaderT.getRecordNum()*pageHeaderT.getRecordLength()];
                     System.arraycopy(data,per_size*recordPerBlock*i+firstPageRecordNum*per_size,dataTT,0,dataTT.length);
-                    diskManager.writePage(tableName,pageNum+i,0,pageHeaderT.ToBytes());
-                    diskManager.writePage(tableName,pageNum+i,pageHeaderT.getLastRecordOffset(),dataTT);
+                    pageId = LockManager.computeId(tableName, DiskManager.AccessType.TABLE,null,pageNum+i+1);
+                    lockManager.lockWrite(pageId,threadId);
+                    if (isTxn) transactionExecutor.addChangeLog(new TablePageHeaderChangeLog(tableName,pageNum+i+1,oldPageHeaderT));
+                    diskManager.writePageHeader(tableName,pageNum+i+1,pageHeaderT);
+                    int recordNumT = dataTT.length/pageHeaderT.getRecordLength();
+                    byte[] tempDataT = new byte[pageHeaderT.getRecordLength()];
+                    for (int j = 0; j < recordNumT; j++) {
+                        if (isTxn) transactionExecutor.addChangeLog(new RecordChangeLog(tableName,pageNum+i+1,j,new byte[per_size]));
+                        System.arraycopy(dataTT,j * per_size,tempDataT,0,per_size);
+                        diskManager.writeOneRecord(tableName,pageNum+i+1,j,tempDataT);
+                    }
                 }
+                TableHeader oldTableHeader = new TableHeader(tableHeader);
                 tableHeader.setTableLength(pageNum+pageNumT);
+                if (isTxn) transactionExecutor.addChangeLog(new TableHeaderChangeLog(tableName,oldTableHeader));
+                diskManager.setTableHeader(tableName,tableHeader);
             }
         }
-
         return "Table " + tableName + " insert " + records.size() + " records";
     }
 

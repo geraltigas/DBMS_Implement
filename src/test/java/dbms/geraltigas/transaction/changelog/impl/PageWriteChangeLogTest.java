@@ -10,8 +10,6 @@ import static org.junit.jupiter.api.Assertions.*;
 class PageWriteChangeLogTest {
     @Test
     void recover() {
-        PageWriteChangeLog pageWriteChangeLog = new PageWriteChangeLog("test", DiskManager.AccessType.TABLE, "test", 1);
-        assertNotNull(pageWriteChangeLog.diskManager);
     }
 
 }

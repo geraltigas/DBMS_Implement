@@ -50,44 +50,51 @@ public class SelectHandler implements Handler {
         Select select = (Select) query;
         PlainSelect selectBody = (PlainSelect)select.getSelectBody();
         List<SelectItem> selectItems = selectBody.getSelectItems();
-
+        List<String> tableNames = new ArrayList<>();
+        tableNames.add(selectBody.getFromItem().toString());
+        if (selectBody.getJoins() != null) {
+            for (Join join : selectBody.getJoins()) {
+                tableNames.add(join.getRightItem().toString());
+            }
+        }
         for (SelectItem selectItem : selectItems) {
             if (selectItem instanceof AllColumns) {
-                TableDefine tableDefine = tableBuffer.getTableDefine(selectBody.getFromItem().toString());
-                names.addAll(tableDefine.getColNames());
-                expressions.addAll(tableDefine.getColNames().stream().map(colName -> new Expression(null,null,colName,null, Expression.Op.NULL)).toList());
+                for (String tableName : tableNames) {
+                    TableDefine tableDefine = tableBuffer.getTableDefine(tableName);
+                    names.addAll(tableDefine.getColNames());
+                    expressions.addAll(tableDefine.getColNames().stream().map(colName -> new Expression(null,null,colName,null, Expression.Op.NULL)).toList());
+                }
                 break;
             }
             SelectExpressionItem selectExpressionItem = (SelectExpressionItem)selectItem;
             if (selectExpressionItem.getAlias() != null) {
                 names.add(selectExpressionItem.getAlias().getName());
                 net.sf.jsqlparser.expression.Expression expression = selectExpressionItem.getExpression();
-//                if (expression instanceof Subtraction subtraction) {
-//                    Expression expression1 = new Expression();
-//                    expression1.setLeft(new Expression(null,null,subtraction.getLeftExpression().toString(),null ,Expression.Op.NULL));
-//                    expression1.setRight(new Expression(null,null,subtraction.getRightExpression().toString(), null, Expression.Op.NULL));
-//                    expression1.setOp(Expression.Op.SUBTRACT);
-//                    expressions.add(expression1);
-//                    continue;
-//                }
-//                if (expression instanceof Addition addition) {
-//                    Expression expression1 = new Expression();
-//                    expression1.setLeft(new Expression(null,null,addition.getLeftExpression().toString(), null, Expression.Op.NULL));
-//                    expression1.setRight(new Expression(null,null,addition.getRightExpression().toString(), null, Expression.Op.NULL));
-//                    expression1.setOp(Expression.Op.PLUS);
-//                    expressions.add(expression1);
-//                    continue;
-//                }
+                if (expression instanceof Subtraction subtraction) {
+                    Expression expression1 = new Expression();
+                    expression1.setLeft(new Expression(null,null,subtraction.getLeftExpression().toString(),null ,Expression.Op.NULL));
+                    expression1.setRight(new Expression(null,null,subtraction.getRightExpression().toString(), null, Expression.Op.NULL));
+                    expression1.setOp(Expression.Op.SUBTRACT);
+                    expressions.add(expression1);
+                    continue;
+                }
+                if (expression instanceof Addition addition) {
+                    Expression expression1 = new Expression();
+                    expression1.setLeft(new Expression(null,null,addition.getLeftExpression().toString(), null, Expression.Op.NULL));
+                    expression1.setRight(new Expression(null,null,addition.getRightExpression().toString(), null, Expression.Op.NULL));
+                    expression1.setOp(Expression.Op.PLUS);
+                    expressions.add(expression1);
+                    continue;
+                }
                 throw new ExpressionException("expression not supported");
             } else {
                 names.add(selectExpressionItem.getExpression().toString());
                 expressions.add(new Expression(null,null,selectExpressionItem.getExpression().toString(),null, Expression.Op.NULL));
             }
         }
-        String fromTable = selectBody.getFromItem().toString();
         net.sf.jsqlparser.expression.Expression whereExpressions = selectBody.getWhere();
         Expression expression = parseExpression(whereExpressions);
-        SelectExec execPlan = new SelectExec(expressions,names,fromTable,expression);
+        SelectExec execPlan = new SelectExec(expressions,names,tableNames,expression);
         ApplicationContextUtils.autowire(execPlan);
         execPlan.setThreadId(threadId);
         executeEngine.addExecPlan(execPlan);

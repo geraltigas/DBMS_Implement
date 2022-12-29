@@ -60,7 +60,9 @@ public class TableBuffer { // TableBuffer is thread safe
         List<String> indexColumnNameList = new ArrayList<>();
         Path path = Path.of(executeEngine.getDateDir()).resolve("indexes").resolve(tableName);
         String[] indexFiles = path.toFile().list();
-        assert indexFiles != null;
+        if (indexFiles == null) {
+            return new Pair<>(indexNameList, indexColumnNameList);
+        }
         for (String fileName : indexFiles) {
             String[] split = fileName.split("[\\[\\]]");
             indexNameList.add(split[0]);

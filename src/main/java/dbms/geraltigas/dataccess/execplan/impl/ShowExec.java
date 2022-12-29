@@ -37,11 +37,16 @@ public class ShowExec implements ExecPlan {
     @Override
     public String execute(String dataPath) throws IOException, DataTypeException, FieldNotFoundException, BlockException, DataDirException {
         switch (variable) {
-            case "tables":
+            case "tables" -> {
                 Path path = Path.of(dataPath).resolve("tables");
-                return Arrays.toString(Arrays.stream(path.toFile().list()).map(s -> s.replace(".tbl","")).toArray());
-            default:
+                return Arrays.toString(Arrays.stream(path.toFile().list()).map(s -> s.replace(".tbl", "")).toArray());
+            }
+            case "drop" -> {
+                return "Dont support drop in txn";
+            }
+            default -> {
                 return "unknown";
+            }
         }
     }
 }

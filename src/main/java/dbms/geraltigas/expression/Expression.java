@@ -46,6 +46,18 @@ public class Expression {
         res.add(String.join(",",names.stream().map(item -> map.get(item).toString()).toArray(String[]::new)));
     }
 
+    public static void nullEvalAll(List<Object> values, List<TableDefine.Type> types,List<String> names, List<String> alias, List<Expression> expressions, List<String> res) {
+        Map<String,Object> map = new HashMap<>();
+        Map<String, TableDefine.Type> typeMap = new HashMap<>();
+        for (int i = 0; i < names.size(); i++) {
+            map.put(names.get(i),values.get(i));
+            typeMap.put(names.get(i),types.get(i));
+        }
+
+        evalAliasExpression(typeMap,alias,expressions,map);
+        res.add(String.join(",",names.stream().map(item -> map.get(item).toString()).toArray(String[]::new)));
+    }
+
     public boolean eval(byte[] record, TableDefine tableDefine, List<String> alias, List<Expression> expressions, List<String> res) {
         List<TableDefine.Type> types = tableDefine.getColTypes();
         List<String> names = tableDefine.getColNames();
@@ -60,7 +72,24 @@ public class Expression {
         evalAliasExpression(typeMap,alias,expressions,map);
 
         if ((Boolean) this.eval(typeMap,map)) {
-            res.add(String.join(",",names.stream().map(item -> map.get(item).toString()).toArray(String[]::new)));
+            res.add(String.join(",",alias.stream().map(item -> map.get(item).toString()).toArray(String[]::new)));
+            return true;
+        }
+        return false;
+    }
+
+    public boolean evalAll(List<Object> values, List<TableDefine.Type> types,List<String> names, List<String> alias, List<Expression> expressions, List<String> res) {
+        Map<String,Object> map = new HashMap<>();
+        Map<String, TableDefine.Type> typeMap = new HashMap<>();
+        for (int i = 0; i < names.size(); i++) {
+            map.put(names.get(i),values.get(i));
+            typeMap.put(names.get(i),types.get(i));
+        }
+
+        evalAliasExpression(typeMap,alias,expressions,map);
+
+        if ((Boolean) this.eval(typeMap,map)) {
+            res.add(String.join(",",alias.stream().map(item -> map.get(item).toString()).toArray(String[]::new)));
             return true;
         }
         return false;
@@ -86,32 +115,32 @@ public class Expression {
                 Object rightValue = right.eval(typeMap, map);
                 yield (Boolean) leftValue || (Boolean) rightValue;
             }
-//            case SUBTRACT: {
-//                Object leftValue = left.eval(typeMap, map);
-//                Object rightValue = right.eval(typeMap, map);
-//                switch (typeMap.get(left.name)) {
-//                    case INTEGER -> {
-//                        yield (Integer) leftValue - (Integer) rightValue;
-//                    }
-//                    case FLOAT -> {
-//                        yield (Float) leftValue - (Float) rightValue;
-//                    }
-//                    default -> throw new IllegalStateException("Unexpected value: " + typeMap.get(leftValue.getClass().getName()));
-//                }
-//            }
-//            case PLUS:{
-//                Object leftValue = left.eval(typeMap, map);
-//                Object rightValue = right.eval(typeMap, map);
-//                switch (typeMap.get(left.name)) {
-//                    case INTEGER -> {
-//                        yield (Integer) leftValue + (Integer) rightValue;
-//                    }
-//                    case FLOAT -> {
-//                        yield (Float) leftValue + (Float) rightValue;
-//                    }
-//                    default -> throw new IllegalStateException("Unexpected value: " + typeMap.get(leftValue.getClass().getName()));
-//                }
-//            }
+            case SUBTRACT: {
+                Object leftValue = left.eval(typeMap, map);
+                Object rightValue = right.eval(typeMap, map);
+                switch (typeMap.get(left.name)) {
+                    case INTEGER -> {
+                        yield (Integer) leftValue - (Integer) rightValue;
+                    }
+                    case FLOAT -> {
+                        yield (Float) leftValue - (Float) rightValue;
+                    }
+                    default -> throw new IllegalStateException("Unexpected value: " + typeMap.get(leftValue.getClass().getName()));
+                }
+            }
+            case PLUS:{
+                Object leftValue = left.eval(typeMap, map);
+                Object rightValue = right.eval(typeMap, map);
+                switch (typeMap.get(left.name)) {
+                    case INTEGER -> {
+                        yield (Integer) leftValue + (Integer) rightValue;
+                    }
+                    case FLOAT -> {
+                        yield (Float) leftValue + (Float) rightValue;
+                    }
+                    default -> throw new IllegalStateException("Unexpected value: " + typeMap.get(leftValue.getClass().getName()));
+                }
+            }
             case EQUAL:{
                 Object leftValue = left.eval(typeMap, map);
                 Object rightValue = right.eval(typeMap, map);
@@ -169,6 +198,8 @@ public class Expression {
         LONG_VALUE,
         DOUBLE_VALUE,
         STRING_VALUE,
+        SUBTRACT,
+        PLUS
     }
     Expression left;
     Expression right;

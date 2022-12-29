@@ -3,6 +3,7 @@ package dbms.geraltigas.dataccess.execplan.impl;
 import dbms.geraltigas.dataccess.Executor;
 import dbms.geraltigas.dataccess.TransactionExecutor;
 import dbms.geraltigas.dataccess.execplan.ExecPlan;
+import dbms.geraltigas.format.tables.TableHeader;
 
 import java.io.File;
 import java.nio.file.Path;
@@ -11,7 +12,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
-public class DropExec implements ExecPlan { // TODO:  change to lock and index
+public class DropExec implements ExecPlan {
     String tableName;
     private long threadId;
     boolean isTxn;
@@ -27,6 +28,9 @@ public class DropExec implements ExecPlan { // TODO:  change to lock and index
     @Override
     public String execute(String dataPath) {
         List<String> res = new ArrayList<>();
+        if (isTxn) {
+            return "Dont support drop in txn";
+        }
         Path path = Paths.get(dataPath + "/tables");
         if (path.toFile().exists()) {
             Path tablePath = path.resolve(tableName + ".tbl");

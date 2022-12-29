@@ -16,7 +16,7 @@ import java.util.List;
 public class PageHeader {
     private int recordNum = 0;
     private int recordLength = 0;
-    private int lastRecordOffset = 0;
+    private int lastRecordOffset = 4096;
 
     public static final int PAGE_HEADER_LENGTH = 12;
 
@@ -24,6 +24,17 @@ public class PageHeader {
         recordNum = DataDump.bytesToInt(header, 0);
         recordLength = DataDump.bytesToInt(header, 4);
         lastRecordOffset = DataDump.bytesToInt(header, 8);
+    }
+
+    public PageHeader(PageHeader pageHeader) {
+        recordNum = pageHeader.recordNum;
+        recordLength = pageHeader.recordLength;
+        lastRecordOffset = pageHeader.lastRecordOffset;
+    }
+
+    public PageHeader(int perSize) {
+        recordNum = 0;
+        recordLength = perSize;
     }
 
     public byte[] ToBytes() {

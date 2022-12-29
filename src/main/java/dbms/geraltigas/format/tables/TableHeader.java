@@ -23,6 +23,10 @@ public class TableHeader { // in the first block of the table file
 //        bulkNum = DataDump.BytesToInt(header, 8);
     }
 
+    public TableHeader(TableHeader tableHeader) {
+        tableLength = tableHeader.tableLength;
+    }
+
     public byte[] ToBytes() {
         byte[] data;
         data = DataDump.dump(List.of(TableDefine.Type.INTEGER), List.of(tableLength));
