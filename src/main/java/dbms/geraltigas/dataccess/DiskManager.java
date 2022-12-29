@@ -10,7 +10,6 @@ import dbms.geraltigas.format.tables.TableHeader;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
-import javax.swing.plaf.PanelUI;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -36,7 +35,7 @@ public class DiskManager {
         writeBytesAt(tableName, AccessType.TABLE,null, tableHeader.ToBytes(), 0);
     }
 
-    public void writeIndexPageHeader(String tableName, String indexName, int pageIndex, IndexPageHeader indexPageHeader) throws BlockException, IOException {
+    public void setIndexPageHeader(String tableName, String indexName, int pageIndex, IndexPageHeader indexPageHeader) throws BlockException, IOException {
         writeBytesAt(tableName, AccessType.INDEX, indexName, indexPageHeader.ToBytes(), (long) pageIndex * BLOCK_SIZE);
     }
 
@@ -50,7 +49,7 @@ public class DiskManager {
         return new IndexHeader(data);
     }
 
-    public void writeIndexHeader(String tableName, String indexName, IndexHeader indexHeader) throws BlockException, DataDirException, IOException {
+    public void setIndexHeader(String tableName, String indexName, IndexHeader indexHeader) throws BlockException, DataDirException, IOException {
         writeBytesAt(tableName,AccessType.INDEX,indexName, indexHeader.ToBytes(), 0);
     }
 
@@ -167,7 +166,7 @@ public class DiskManager {
         return new PageHeader(pageData);
     }
 
-    public void writePageHeader(String tableName, int pageIndex, PageHeader pageHeader) throws BlockException, DataDirException, IOException {
+    public void setPageHeader(String tableName, int pageIndex, PageHeader pageHeader) throws BlockException, DataDirException, IOException {
         byte[] pageData = readPage(tableName, pageIndex);
         System.arraycopy(pageHeader.ToBytes(), 0, pageData, 0, PageHeader.PAGE_HEADER_LENGTH);
         writePage(tableName, pageIndex, 0, pageData);

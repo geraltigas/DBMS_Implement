@@ -42,7 +42,11 @@ public class BeginTxnExec implements ExecPlan {
 
     @Override
     public String execute(String dataPath) throws IOException, DataTypeException, FieldNotFoundException, BlockException, DataDirException {
-        executeEngine.beginTxn(threadId);
-        return "Transaction begin";
+        if (!executeEngine.existTxn(threadId)) {
+            executeEngine.beginTxn(threadId);
+            return "Transaction begin";
+        }else {
+            return "Transaction already begin";
+        }
     }
 }

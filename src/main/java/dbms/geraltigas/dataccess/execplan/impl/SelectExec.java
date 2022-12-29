@@ -282,6 +282,10 @@ public class SelectExec implements ExecPlan { // TODO:  change to lock and index
             }
         }
 
+        if(!isTxn) {
+            lockManager.unlockAll(threadId);
+        }
+
         return String.join("\n", res);
     }
 

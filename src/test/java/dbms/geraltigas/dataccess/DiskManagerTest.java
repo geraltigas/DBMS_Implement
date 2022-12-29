@@ -36,7 +36,7 @@ class DiskManagerTest {
     void readPageHeader() throws BlockException, DataDirException, IOException {
         PageHeader pageHeader = diskManager.readPageHeader("test1", 1);
         pageHeader.setRecordNum(6);
-        diskManager.writePageHeader("test1", 1, pageHeader);
+        diskManager.setPageHeader("test1", 1, pageHeader);
         while (true) {}
     }
 }

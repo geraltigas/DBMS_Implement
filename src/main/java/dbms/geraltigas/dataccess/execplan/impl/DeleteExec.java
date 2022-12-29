@@ -253,6 +253,10 @@ public class DeleteExec implements ExecPlan {
 
         res.add("Delete " + deleteNum + " records from table " + tableName);
 
+        if(!isTxn) {
+            lockManager.unlockAll(threadId);
+        }
+
         return String.join("\n", res);
     }
 

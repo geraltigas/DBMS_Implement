@@ -2,16 +2,16 @@ package dbms.geraltigas.dataccess.execplan.impl;
 
 import dbms.geraltigas.buffer.TableBuffer;
 import dbms.geraltigas.dataccess.DiskManager;
+import dbms.geraltigas.dataccess.ExecuteEngine;
 import dbms.geraltigas.dataccess.Executor;
 import dbms.geraltigas.dataccess.TransactionExecutor;
 import dbms.geraltigas.dataccess.execplan.ExecPlan;
-import dbms.geraltigas.exception.BlockException;
-import dbms.geraltigas.exception.DataDirException;
-import dbms.geraltigas.exception.DataTypeException;
-import dbms.geraltigas.exception.FieldNotFoundException;
+import dbms.geraltigas.exception.*;
+import dbms.geraltigas.transaction.LockManager;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import java.io.IOException;
+import java.util.concurrent.locks.Lock;
 
 public class CommitTxnExec implements ExecPlan {
     @Autowired
@@ -21,6 +21,11 @@ public class CommitTxnExec implements ExecPlan {
     DiskManager diskManager;
     long threadId;
 
+    @Autowired
+    ExecuteEngine executeEngine;
+
+    @Autowired
+    LockManager lockManager;
     @Override
     public void setThreadId(long threadId) {
         this.threadId = threadId;
@@ -39,7 +44,12 @@ public class CommitTxnExec implements ExecPlan {
     }
 
     @Override
-    public String execute(String dataPath) throws IOException, DataTypeException, FieldNotFoundException, BlockException, DataDirException {
-        return null;
+    public String execute(String dataPath) throws IOException, DataTypeException, FieldNotFoundException, BlockException, DataDirException, ThreadStopException {
+        if (executeEngine.existTxn(threadId)) {
+            executeEngine.commitTxn(threadId);
+            lockManager.unlockAll(threadId);
+            throw new ThreadStopException("Transaction committed");
+        }
+        return "No transaction to commit";
     }
 }

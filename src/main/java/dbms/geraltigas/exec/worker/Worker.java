@@ -91,7 +91,7 @@ public class Worker implements Runnable {
     @Autowired
     ExecutorService executorService;
 
-    private State state = State.IDLE;
+    private State state = State.AUTHENTICATED;
     private Socket socket;
 
     private long threadId;
@@ -101,23 +101,19 @@ public class Worker implements Runnable {
     // public
     public Worker(Socket socket) {
         this.socket = socket;
-        this.state = State.CONNECTED;
+        this.state = State.AUTHENTICATED; // here to control the initial state of the connection
     }
 
     public Worker() {
     }
 
     public String doWork(String input) throws JSQLParserException, HandleException, ExecutionException, InterruptedException, DataTypeException, DropTypeException, ExpressionException {
-        switch (state) {
-            case IDLE:
-                return idleProcess(input);
-            case CONNECTED:
-                return connectedProcess(input);
-            case AUTHENTICATED:
-                return authenticatedProcess(input);
-            default:
-                return "UNKNOWN";
-        }
+        return switch (state) {
+            case IDLE -> idleProcess(input);
+            case CONNECTED -> connectedProcess(input);
+            case AUTHENTICATED -> authenticatedProcess(input);
+            default -> "UNKNOWN";
+        };
     }
 
     public void printState() {
@@ -227,11 +223,17 @@ public class Worker implements Runnable {
         handler.setThreadId(threadId);
         return waitForResult(handler.handle(null));
     }
-    private String commitExec() { //TODO: commit transaction
-        return null;
+    private String commitExec() throws HandleException, DataTypeException, DropTypeException, ExpressionException, ExecutionException, InterruptedException { //TODO: commit transaction
+        workerPrint("Commit Transaction");
+        handler = handlerFactory.getHandler(HandlerFactory.HandlerType.COMMIT);
+        handler.setThreadId(threadId);
+        return waitForResult(handler.handle(null));
     }
-    private String rollbackExec() { //TODO: rollback transaction
-        return null;
+    private String rollbackExec() throws HandleException, DataTypeException, DropTypeException, ExpressionException, ExecutionException, InterruptedException { //TODO: rollback transaction
+        workerPrint("Rollback Transaction");
+        handler = handlerFactory.getHandler(HandlerFactory.HandlerType.ROLLBACK);
+        handler.setThreadId(threadId);
+        return waitForResult(handler.handle(null));
     }
 
     private String createIndexExec(CreateIndex statement) throws HandleException, ExecutionException, InterruptedException, DataTypeException, DropTypeException, ExpressionException { //TODO: Create Index

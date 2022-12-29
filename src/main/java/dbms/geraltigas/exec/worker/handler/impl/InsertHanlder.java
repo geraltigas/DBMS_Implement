@@ -62,6 +62,7 @@ public class InsertHanlder implements Handler {
         }
         InsertExec execPlan = new InsertExec(tableName, colNames, colValues);
         ApplicationContextUtils.autowire(execPlan);
+        execPlan.setThreadId(threadId);
         executeEngine.addExecPlan(execPlan);
         return execPlan.hashCode();
     }

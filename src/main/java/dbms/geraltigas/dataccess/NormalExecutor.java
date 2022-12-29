@@ -1,10 +1,7 @@
 package dbms.geraltigas.dataccess;
 
 import dbms.geraltigas.dataccess.execplan.ExecPlan;
-import dbms.geraltigas.exception.BlockException;
-import dbms.geraltigas.exception.DataDirException;
-import dbms.geraltigas.exception.DataTypeException;
-import dbms.geraltigas.exception.FieldNotFoundException;
+import dbms.geraltigas.exception.*;
 import dbms.geraltigas.transaction.changelog.ChangeLog;
 import lombok.SneakyThrows;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -47,6 +44,8 @@ public class NormalExecutor implements Executor {
                         res = execPlan.execute(executeEngine.getDateDir());
                     } catch (IOException | DataTypeException | FieldNotFoundException | BlockException |
                              DataDirException e) {
+                        throw new RuntimeException(e);
+                    } catch (ThreadStopException e) {
                         throw new RuntimeException(e);
                     }
                     executeEngine.addResult(execPlan.hashCode(), res);

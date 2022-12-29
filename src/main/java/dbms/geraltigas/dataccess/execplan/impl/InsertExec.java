@@ -22,7 +22,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 import java.io.IOException;
 import java.util.*;
-import java.util.concurrent.locks.Lock;
 
 public class InsertExec implements ExecPlan {
     String tableName;
@@ -138,13 +137,13 @@ public class InsertExec implements ExecPlan {
                 int recordNum = dataT.length/pageHeader.getRecordLength();
                 byte[] tempData = new byte[pageHeader.getRecordLength()];
                 if (isTxn) transactionExecutor.addChangeLog(new TablePageHeaderChangeLog(tableName,i+1,oldPageHeader));
-                diskManager.writePageHeader(tableName,i+1,new PageHeader(per_size));
+                diskManager.setPageHeader(tableName,i+1,new PageHeader(per_size));
                 for (int j = 0; j < recordNum; j++) {
                     System.arraycopy(dataT,j * per_size,tempData,0,per_size);
                     if (isTxn) transactionExecutor.addChangeLog(new RecordChangeLog(tableName,i+1,j,new byte[per_size]));
                     diskManager.writeOneRecord(tableName,i+1,j,tempData);
                 }
-                diskManager.writePageHeader(tableName,i+1,pageHeader);
+                diskManager.setPageHeader(tableName,i+1,pageHeader);
             }
             TableHeader oldTableHeader = new TableHeader(tableHeader);
             tableHeader.setTableLength(pageNum);
@@ -166,7 +165,7 @@ public class InsertExec implements ExecPlan {
             pageHeader.setLastRecordOffset(pageHeader.getLastRecordOffset() - dataT.length);
 
             if (isTxn) transactionExecutor.addChangeLog(new TablePageHeaderChangeLog(tableName,pageNum,oldPageHeader));
-            diskManager.writePageHeader(tableName,pageNum,pageHeader);
+            diskManager.setPageHeader(tableName,pageNum,pageHeader);
             int recordNum = dataT.length/pageHeader.getRecordLength();
             byte[] tempData = new byte[pageHeader.getRecordLength()];
             for (int i = 0; i < recordNum; i++) {
@@ -197,7 +196,7 @@ public class InsertExec implements ExecPlan {
                     pageId = LockManager.computeId(tableName, DiskManager.AccessType.TABLE,null,pageNum+i+1);
                     lockManager.lockWrite(pageId,threadId);
                     if (isTxn) transactionExecutor.addChangeLog(new TablePageHeaderChangeLog(tableName,pageNum+i+1,oldPageHeaderT));
-                    diskManager.writePageHeader(tableName,pageNum+i+1,pageHeaderT);
+                    diskManager.setPageHeader(tableName,pageNum+i+1,pageHeaderT);
                     int recordNumT = dataTT.length/pageHeaderT.getRecordLength();
                     byte[] tempDataT = new byte[pageHeaderT.getRecordLength()];
                     for (int j = 0; j < recordNumT; j++) {
@@ -212,6 +211,11 @@ public class InsertExec implements ExecPlan {
                 diskManager.setTableHeader(tableName,tableHeader);
             }
         }
+
+        if(!isTxn) {
+            lockManager.unlockAll(threadId);
+        }
+
         return "Table " + tableName + " insert " + records.size() + " records";
     }
 

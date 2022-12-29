@@ -1,12 +1,15 @@
 package dbms.geraltigas.dataccess;
 
 import dbms.geraltigas.dataccess.execplan.ExecPlan;
+import dbms.geraltigas.exception.BlockException;
 import dbms.geraltigas.exception.DataDirException;
+import dbms.geraltigas.transaction.LockManager;
 import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedDeque;
@@ -47,6 +50,10 @@ public class ExecuteEngine {
         }
     }
 
+    public boolean existTxn(long threadId) {
+        return transactions.containsKey(threadId);
+    }
+
     public void addExecPlan(ExecPlan execPlan) {
         if (transactions.containsKey(execPlan.getThreadId())) {
             // add execplan to transaction to shedule
@@ -72,10 +79,21 @@ public class ExecuteEngine {
         executorService.submit(executor);
     }
 
+    public void commitTxn(long threadId) {
+        transactions.remove(threadId);
+    }
+
     @PostConstruct
     private void beginDataAccessWatcher() {
         normalExecutor.setExecuteEngine(this);
         executorService.submit(normalExecutor);
         System.out.println("[ExecuteEngine] NormalExecutor started");
+    }
+
+
+    public void rollbackTxn(long threadId) throws BlockException, DataDirException, IOException {
+        TransactionExecutor executor = (TransactionExecutor) transactions.get(threadId);
+        executor.rollBack();
+        transactions.remove(threadId);
     }
 }

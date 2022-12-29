@@ -1,10 +1,8 @@
 package dbms.geraltigas.dataccess.execplan.impl;
 
-import dbms.geraltigas.buffer.BlockBuffer;
 import dbms.geraltigas.buffer.TableBuffer;
 import dbms.geraltigas.dataccess.DiskManager;
 import dbms.geraltigas.dataccess.Executor;
-import dbms.geraltigas.dataccess.TransactionExecutor;
 import dbms.geraltigas.dataccess.execplan.ExecPlan;
 import dbms.geraltigas.exception.BlockException;
 import dbms.geraltigas.exception.DataDirException;
@@ -24,8 +22,6 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public class CreateIndexExec implements ExecPlan {
 
@@ -86,7 +82,7 @@ public class CreateIndexExec implements ExecPlan {
         long headerId = LockManager.computeId(tableName, DiskManager.AccessType.INDEX,indexName,0);
         lockManager.lockWrite(headerId, threadId);
         IndexHeader indexHeader = new IndexHeader();
-        diskManager.writeIndexHeader(tableName,indexName,indexHeader);
+        diskManager.setIndexHeader(tableName,indexName,indexHeader);
 
         // get all index data page write lock
         for (int i = 0; i < indexHeader.getIndexDataPageNum(); i++) {
@@ -142,7 +138,7 @@ public class CreateIndexExec implements ExecPlan {
                 IndexPageHeader indexPageHeader = diskManager.getIndexPageHeader(tableName, indexName, hash+1);
                 diskManager.writeOneIndexData(tableName, hash+1, indexName, indexPageHeader.getIndexNum(), indexDataLength ,indexDataBytes);
                 indexPageHeader.setIndexNum(indexPageHeader.getIndexNum()+1);
-                diskManager.writeIndexPageHeader(tableName, indexName, hash+1, indexPageHeader);
+                diskManager.setIndexPageHeader(tableName, indexName, hash+1, indexPageHeader);
                 indexNum++;
             }
         }

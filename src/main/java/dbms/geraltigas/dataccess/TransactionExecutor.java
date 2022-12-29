@@ -1,10 +1,7 @@
 package dbms.geraltigas.dataccess;
 
 import dbms.geraltigas.dataccess.execplan.ExecPlan;
-import dbms.geraltigas.exception.BlockException;
-import dbms.geraltigas.exception.DataDirException;
-import dbms.geraltigas.exception.DataTypeException;
-import dbms.geraltigas.exception.FieldNotFoundException;
+import dbms.geraltigas.exception.*;
 import dbms.geraltigas.transaction.changelog.ChangeLog;
 import lombok.SneakyThrows;
 
@@ -22,10 +19,14 @@ public class TransactionExecutor implements Executor{
 
     private List<ChangeLog> changeLogs = new ArrayList<>();
 
-
-
     public TransactionExecutor(long threadId) {
         this.threadId = threadId;
+    }
+
+    public void rollBack() throws BlockException, DataDirException, IOException {
+        for (ChangeLog changeLog : changeLogs) {
+            changeLog.recover();
+        }
     }
 
     @Override
@@ -55,6 +56,10 @@ public class TransactionExecutor implements Executor{
                     res = execPlan.execute(executeEngine.getDateDir());
                 } catch (IOException | DataTypeException | FieldNotFoundException | BlockException | DataDirException e) {
                     throw new RuntimeException(e);
+                } catch (ThreadStopException e) {
+                    System.out.println("[ExecuteEngine] TransactionExecutor " + threadId + " stop");
+                    executeEngine.addResult(execPlan.hashCode(),e.getMessage());
+                    return;
                 }
                 executeEngine.addResult(execPlan.hashCode(), res);
             }

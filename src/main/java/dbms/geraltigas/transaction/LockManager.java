@@ -78,11 +78,24 @@ public class LockManager { // add read or write lock to every page
                     }
                 }
             } else {
-                try {
-                    pageLockInfo.condition.await();
-                    lockWrite(pageId, transactionId);
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
+                boolean allMine = true;
+                for (Long txnId : pageLockInfo.txnIdList) {
+                    if (txnId != transactionId) {
+                        allMine = false;
+                        break;
+                    }
+                }
+                if (allMine) {
+                    pageLockInfo.lockType = LockType.WRITE;
+                    pageLockInfo.lockNum++;
+                    pageLockInfo.txnIdList.add(transactionId);
+                } else {
+                    try {
+                        pageLockInfo.condition.await();
+                        lockWrite(pageId, transactionId);
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
                 }
             }
         } else {

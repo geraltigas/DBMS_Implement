@@ -1,7 +1,6 @@
 package dbms.geraltigas.dataccess.execplan.impl;
 
 import dbms.geraltigas.dataccess.Executor;
-import dbms.geraltigas.dataccess.TransactionExecutor;
 import dbms.geraltigas.dataccess.execplan.ExecPlan;
 import dbms.geraltigas.exception.BlockException;
 import dbms.geraltigas.exception.DataDirException;
