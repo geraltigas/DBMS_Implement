@@ -4,12 +4,15 @@ import dbms.geraltigas.dataccess.execplan.ExecPlan;
 import dbms.geraltigas.exception.BlockException;
 import dbms.geraltigas.exception.DataDirException;
 import dbms.geraltigas.transaction.LockManager;
+import dbms.geraltigas.utils.Pair;
 import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedDeque;
@@ -25,7 +28,9 @@ public class ExecuteEngine {
     NormalExecutor normalExecutor;
 
     private ConcurrentHashMap<Integer, String> results = new ConcurrentHashMap<>();
-    private Map<Long, Executor> transactions = new ConcurrentHashMap<>();
+    private Map<Long, TransactionExecutor> transactions = new ConcurrentHashMap<>();
+
+    private Map<Long, Integer> txnStep = new ConcurrentHashMap<>();
 
     private String dataPath = "E:/DBMSTEST";
 
@@ -73,7 +78,7 @@ public class ExecuteEngine {
     }
 
     public void beginTxn(long threadId) {
-        Executor executor = new TransactionExecutor(threadId);
+        TransactionExecutor executor = new TransactionExecutor(threadId);
         executor.setExecuteEngine(this);
         transactions.put(threadId,executor);
         executorService.submit(executor);
@@ -90,10 +95,36 @@ public class ExecuteEngine {
         System.out.println("[ExecuteEngine] NormalExecutor started");
     }
 
-
-    public void rollbackTxn(long threadId) throws BlockException, DataDirException, IOException {
+    public synchronized void rollbackTxn(long threadId) throws BlockException, DataDirException, IOException {
         TransactionExecutor executor = (TransactionExecutor) transactions.get(threadId);
+        if (executor == null) {
+            return;
+        }
         executor.rollBack();
         transactions.remove(threadId);
+    }
+
+    public void detectDeadLock() throws BlockException, DataDirException, IOException {
+        List<Long> txnStepToRemove = new ArrayList<>();
+        List<Long> txnToRollback = new ArrayList<>();
+        for (Map.Entry<Long,Integer> entry : txnStep.entrySet()) {
+            TransactionExecutor executor = (TransactionExecutor) transactions.get(entry.getKey());
+            if (executor == null) {
+                txnStepToRemove.add(entry.getKey());
+                continue;
+            }
+            if (entry.getValue() == executor.getStep()) {
+                txnStepToRemove.add(entry.getKey());
+                txnToRollback.add(entry.getKey());
+            } else {
+                txnStep.replace(entry.getKey(), executor.getStep());
+            }
+        }
+        for (Long key : txnStepToRemove) {
+            txnStep.remove(key);
+        }
+        for (Long key : txnToRollback) {
+            rollbackTxn(key);
+        }
     }
 }

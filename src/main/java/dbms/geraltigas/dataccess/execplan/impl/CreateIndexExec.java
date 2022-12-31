@@ -118,11 +118,11 @@ public class CreateIndexExec implements ExecPlan {
         for (int i = 0; i < tableDataPageNum; i++) {
             long tableDataId = LockManager.computeId(tableName, DiskManager.AccessType.TABLE, null ,i+1);
             lockManager.lockRead(tableDataId, threadId);
-            PageHeader pageHeader = diskManager.readPageHeader(tableName, i+1);
+            PageHeader pageHeader = diskManager.getPageHeader(tableName, i+1);
             int recordNum = pageHeader.getRecordNum();
             int indexNum = 0;
             for (int j = 0; j < recordNum; j++) {
-                byte[] record = diskManager.readOneRecord(tableName, i+1, j);
+                byte[] record = diskManager.getOneRecord(tableName, i+1, j);
                 if (record[0] == 0) {
                     continue;
                 }
@@ -136,7 +136,7 @@ public class CreateIndexExec implements ExecPlan {
                 int hash = values.get(indexColumnIndex).toString().hashCode();
                 hash = hash % indexHeader.getIndexHashArraySize();
                 IndexPageHeader indexPageHeader = diskManager.getIndexPageHeader(tableName, indexName, hash+1);
-                diskManager.writeOneIndexData(tableName, hash+1, indexName, indexPageHeader.getIndexNum(), indexDataLength ,indexDataBytes);
+                diskManager.setOneIndexData(tableName, hash+1, indexName, indexPageHeader.getIndexNum(), indexDataLength ,indexDataBytes);
                 indexPageHeader.setIndexNum(indexPageHeader.getIndexNum()+1);
                 diskManager.setIndexPageHeader(tableName, indexName, hash+1, indexPageHeader);
                 indexNum++;

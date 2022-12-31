@@ -3,6 +3,7 @@ package dbms.geraltigas.dataccess;
 import dbms.geraltigas.dataccess.execplan.ExecPlan;
 import dbms.geraltigas.exception.*;
 import dbms.geraltigas.transaction.changelog.ChangeLog;
+import lombok.Getter;
 import lombok.SneakyThrows;
 
 import javax.swing.event.ChangeEvent;
@@ -14,6 +15,9 @@ import java.util.concurrent.ConcurrentLinkedDeque;
 public class TransactionExecutor implements Executor{
     long threadId;
     private ConcurrentLinkedDeque<ExecPlan> execPlans = new ConcurrentLinkedDeque<>();
+
+    @Getter
+    private int step = 0;
 
     private ExecuteEngine executeEngine;
 
@@ -54,6 +58,7 @@ public class TransactionExecutor implements Executor{
                 String res = null;
                 try {
                     res = execPlan.execute(executeEngine.getDateDir());
+                    step++;
                 } catch (IOException | DataTypeException | FieldNotFoundException | BlockException | DataDirException e) {
                     throw new RuntimeException(e);
                 } catch (ThreadStopException e) {

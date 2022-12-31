@@ -64,7 +64,7 @@ public class DeleteExec implements ExecPlan {
         TableDefine tableDefine = tableBuffer.getTableDefine(tableName);
         long tableHeaderId = LockManager.computeId(tableName, DiskManager.AccessType.TABLE,null,0);
         lockManager.lockWrite(tableHeaderId, threadId);
-        TableHeader tableHeader = new TableHeader(diskManager.readPage(tableName, 0));
+        TableHeader tableHeader = diskManager.getTableHeader(tableName);
         int tableLength = tableHeader.getTableLength();
         int deleteNum = 0;
 
@@ -90,10 +90,10 @@ public class DeleteExec implements ExecPlan {
                 for (int index = 0; index < tableLength; index++) {
                     long pageLockId = LockManager.computeId(tableName, DiskManager.AccessType.TABLE,null,index+1);
                     lockManager.lockWrite(pageLockId, threadId);
-                    PageHeader pageHeader = diskManager.readPageHeader(tableName, index+1);
+                    PageHeader pageHeader = diskManager.getPageHeader(tableName, index+1);
                     int recordNum = pageHeader.getRecordNum();
                     for (int i = 0; i < recordNum;i++) {
-                        byte[] record = diskManager.readOneRecord(tableName, index+1, i);
+                        byte[] record = diskManager.getOneRecord(tableName, index+1, i);
                         if (record[0] == 1) {
                             // judge the record is valid
                             if (whereExpression != null) {
@@ -101,14 +101,14 @@ public class DeleteExec implements ExecPlan {
                                     if (isTxn) transactionExecutor.addChangeLog(new RecordChangeLog(tableName, index+1, i, record.clone()));
                                     record[0] = 0;
                                     deleteNum++;
-                                    diskManager.writeOneRecord(tableName,index+1,i,record);
+                                    diskManager.setOneRecord(tableName,index+1,i,record);
                                     deleteIndexData(indexColumnNameList,record,tableDefine,index+1,i);
                                 }
                             }else {
                                 if (isTxn) transactionExecutor.addChangeLog(new RecordChangeLog(tableName, index+1, i, record.clone()));
                                 record[0] = 0;
                                 deleteNum++;
-                                diskManager.writeOneRecord(tableName,index+1,i,record);
+                                diskManager.setOneRecord(tableName,index+1,i,record);
                                 deleteIndexData(indexColumnNameList,record,tableDefine,index+1,i);
                             }
                         }
@@ -149,7 +149,7 @@ public class DeleteExec implements ExecPlan {
                     List<List<String>> attrValues = new ArrayList<>();
 
                     for (int i = 0; i < indexDataNum; i++) {
-                        byte[] indexData = diskManager.readOneIndexData(tableName, hashIndex+1,indexName, i,InsertExec.CalculateLength(typeList,attrValues));
+                        byte[] indexData = diskManager.getOneIndexData(tableName, hashIndex+1,indexName, i,InsertExec.CalculateLength(typeList,attrValues));
                         if (indexData[0] == 1) {
                             List<Object> valueList1 = DataDump.load(typeList, indexData,0);
                             Integer pageIndex = (Integer) valueList1.get(1);
@@ -165,17 +165,17 @@ public class DeleteExec implements ExecPlan {
                 for (Integer pageId : pageIndexSet) {
                     long pageIdLockId = LockManager.computeId(tableName, DiskManager.AccessType.TABLE,null,pageId);
                     lockManager.lockWrite(pageIdLockId, threadId);
-                    PageHeader pageHeader = diskManager.readPageHeader(tableName, pageId);
+                    PageHeader pageHeader = diskManager.getPageHeader(tableName, pageId);
                     int recordNum1 = pageHeader.getRecordNum();
                     for (int i = 0; i < recordNum1; i++) {
-                        byte[] record = diskManager.readOneRecord(tableName, pageId, i);
+                        byte[] record = diskManager.getOneRecord(tableName, pageId, i);
                         if (record[0] == 1) {
                             if (whereExpression.evalNoAlias(record, tableDefine)) {
                                 if (isTxn) transactionExecutor.addChangeLog(new RecordChangeLog(tableName, pageId, i, record.clone()));
 
                                 record[0] = 0;
                                 deleteNum++;
-                                diskManager.writeOneRecord(tableName,pageId,i,record);
+                                diskManager.setOneRecord(tableName,pageId,i,record);
                                 deleteIndexData(indexColumnNameList,record,tableDefine,pageId,i);
                             }
                         }
@@ -216,7 +216,7 @@ public class DeleteExec implements ExecPlan {
                     List<List<String>> attrValues = new ArrayList<>();
 
                     for (int i = 0; i < indexDataNum; i++) {
-                        byte[] indexData = diskManager.readOneIndexData(tableName, hashIndex+1,indexName, i,InsertExec.CalculateLength(typeList,attrValues));
+                        byte[] indexData = diskManager.getOneIndexData(tableName, hashIndex+1,indexName, i,InsertExec.CalculateLength(typeList,attrValues));
                         if (indexData[0] == 1) {
                             List<Object> valueList1 = DataDump.load(typeList, indexData,0);
                             Integer pageIndex = (Integer) valueList1.get(1);
@@ -232,16 +232,16 @@ public class DeleteExec implements ExecPlan {
                 for (Integer pageId : pageIndexSet) {
                     long pageIdLockId = LockManager.computeId(tableName, DiskManager.AccessType.TABLE,null,pageId);
                     lockManager.lockWrite(pageIdLockId, threadId);
-                    PageHeader pageHeader = diskManager.readPageHeader(tableName, pageId);
+                    PageHeader pageHeader = diskManager.getPageHeader(tableName, pageId);
                     int recordNum1 = pageHeader.getRecordNum();
                     for (int i = 0; i < recordNum1; i++) {
-                        byte[] record = diskManager.readOneRecord(tableName, pageId, i);
+                        byte[] record = diskManager.getOneRecord(tableName, pageId, i);
                         if (record[0] == 1) {
                             if (whereExpression.evalNoAlias(record, tableDefine)) {
                                 if (isTxn) transactionExecutor.addChangeLog(new RecordChangeLog(tableName, pageId, i, record.clone()));
                                 record[0] = 0;
                                 deleteNum++;
-                                diskManager.writeOneRecord(tableName,pageId,i,record);
+                                diskManager.setOneRecord(tableName,pageId,i,record);
                                 deleteIndexData(indexColumnNameList,record,tableDefine,pageId,i);
                             }
                         }
@@ -288,7 +288,7 @@ public class DeleteExec implements ExecPlan {
         List<List<String>> attrValues = new ArrayList<>();
 
         for (int i = 0; i < indexDataNum; i++) {
-            byte[] indexData = diskManager.readOneIndexData(tableName, hashIndex+1,indexColumnName, i,InsertExec.CalculateLength(typeList,attrValues));
+            byte[] indexData = diskManager.getOneIndexData(tableName, hashIndex+1,indexColumnName, i,InsertExec.CalculateLength(typeList,attrValues));
             if (indexData[0] == 1) {
                 List<Object> valueList1 = DataDump.load(typeList, indexData,0);
                 Integer pageIndex1 = (Integer) valueList1.get(1);
@@ -296,7 +296,7 @@ public class DeleteExec implements ExecPlan {
                 if (pageIndex1 == pageIndex && recordIndex1 == recordIndex) {
                     if (isTxn) transactionExecutor.addChangeLog(new IndexChangeLog(tableName, hashIndex+1,indexColumnName, i, InsertExec.CalculateLength(typeList,attrValues),indexData.clone()));
                     indexData[0] = 0;
-                    diskManager.writeOneIndexData(tableName, hashIndex+1,indexColumnName, i, InsertExec.CalculateLength(typeList,attrValues),indexData);
+                    diskManager.setOneIndexData(tableName, hashIndex+1,indexColumnName, i, InsertExec.CalculateLength(typeList,attrValues),indexData);
                     break;
                 }
             }

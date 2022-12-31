@@ -9,10 +9,10 @@ import org.springframework.boot.test.context.SpringBootTest;
 import java.io.IOException;
 
 @SpringBootTest
-class BlockBufferTest {
+class PageBufferTest {
 
     @Autowired
-    BlockBuffer blockBuffer;
+    PageBuffer pageBuffer;
 
     @Test
     void getHashCode() {
@@ -33,7 +33,7 @@ class BlockBufferTest {
     @Test
     void getBlockFromDisk() {
         try {
-            BlockBuffer.Page page = blockBuffer.getPage("test", DiskManager.AccessType.INDEX, "index1", 0);
+            PageBuffer.Page page = pageBuffer.getPage("test", DiskManager.AccessType.INDEX, "index1", 0);
             System.out.println(page.data);
         } catch (BlockException e) {
             throw new RuntimeException(e);

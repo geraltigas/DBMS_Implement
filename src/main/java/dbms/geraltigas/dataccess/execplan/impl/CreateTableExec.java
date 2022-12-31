@@ -115,7 +115,7 @@ public class CreateTableExec implements ExecPlan {
 
         long pageId = LockManager.computeId(tableName, DiskManager.AccessType.TABLE,null,0);
         lockManager.lockWrite(pageId, threadId);
-        diskManager.writeTableFileHeader(tableName, new TableHeader());
+        diskManager.setTableHeader(tableName, new TableHeader());
         res.add("Write table header");
         if (!isTxn) {
             lockManager.unlockAll(threadId);

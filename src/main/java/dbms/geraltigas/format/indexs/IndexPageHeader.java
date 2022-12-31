@@ -12,22 +12,25 @@ public class IndexPageHeader {
     @Getter
     @Setter
     int indexNum = 0;
+    int nextPage = -1;
 
-    public static final int INDEX_PAGE_HEADER_LENGTH = 4;
+    public static final int INDEX_PAGE_HEADER_LENGTH = 8;
 
-    public IndexPageHeader(int indexNum) {
+    public IndexPageHeader(int indexNum, int nextPage) {
         this.indexNum = indexNum;
+        this.nextPage = nextPage;
     }
 
     public IndexPageHeader(){}
 
     public IndexPageHeader(byte[] header) {
         indexNum = DataDump.bytesToInt(header, 0);
+        nextPage = DataDump.bytesToInt(header, 4);
     }
 
     public byte[] ToBytes() {
         byte[] data;
-        data = DataDump.dump(List.of(TableDefine.Type.INTEGER), List.of(indexNum));
+        data = DataDump.dump(List.of(TableDefine.Type.INTEGER,TableDefine.Type.INTEGER), List.of(indexNum,nextPage));
         return data;
     }
 }

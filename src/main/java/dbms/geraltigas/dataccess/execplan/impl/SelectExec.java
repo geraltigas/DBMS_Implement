@@ -14,7 +14,6 @@ import dbms.geraltigas.format.tables.PageHeader;
 import dbms.geraltigas.format.tables.TableDefine;
 import dbms.geraltigas.format.tables.TableHeader;
 import dbms.geraltigas.transaction.LockManager;
-import dbms.geraltigas.transaction.changelog.impl.RecordChangeLog;
 import dbms.geraltigas.utils.DataDump;
 import dbms.geraltigas.utils.Pair;
 import dbms.geraltigas.utils.SetIterator;
@@ -22,8 +21,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 import java.io.IOException;
 import java.util.*;
-
-import static dbms.geraltigas.buffer.BlockBuffer.BLOCK_SIZE;
 
 public class SelectExec implements ExecPlan { // TODO:  change to lock and index
 
@@ -88,10 +85,10 @@ public class SelectExec implements ExecPlan { // TODO:  change to lock and index
                     for (int pageIndex : pageIdList) {
                         long pageId = LockManager.computeId(tableName, DiskManager.AccessType.TABLE,null,pageIndex);
                         lockManager.lockRead(pageId,threadId);
-                        PageHeader pageHeader = diskManager.readPageHeader(tableName, pageIndex);
+                        PageHeader pageHeader = diskManager.getPageHeader(tableName, pageIndex);
                         int recordNumT = pageHeader.getRecordNum();
                         for (int recordIndex = 0 ; recordIndex < recordNumT;recordIndex++) {
-                            byte[] record = diskManager.readOneRecord(tableName, pageIndex, recordIndex);
+                            byte[] record = diskManager.getOneRecord(tableName, pageIndex, recordIndex);
                             if (record[0] == 1) {
                                 // judge the record is valid
                                 if (whereExpression != null) {
@@ -136,7 +133,7 @@ public class SelectExec implements ExecPlan { // TODO:  change to lock and index
                         List<List<String>> attrValues = new ArrayList<>();
 
                         for (int i = 0; i < indexDataNum; i++) {
-                            byte[] indexData = diskManager.readOneIndexData(tableName, hashIndex+1,indexName, i,InsertExec.CalculateLength(typeList,attrValues));
+                            byte[] indexData = diskManager.getOneIndexData(tableName, hashIndex+1,indexName, i,InsertExec.CalculateLength(typeList,attrValues));
                             if (indexData[0] == 1) {
                                 List<Object> valueList1 = DataDump.load(typeList, indexData,0);
                                 Integer pageIndex = (Integer) valueList1.get(1);
@@ -152,10 +149,10 @@ public class SelectExec implements ExecPlan { // TODO:  change to lock and index
                     for (Integer pageIndex : pageIndexSet) {
                         long pageId = LockManager.computeId(tableName, DiskManager.AccessType.TABLE,null,pageIndex);
                         lockManager.lockRead(pageId,threadId);
-                        PageHeader pageHeader = diskManager.readPageHeader(tableName, pageIndex);
+                        PageHeader pageHeader = diskManager.getPageHeader(tableName, pageIndex);
                         int recordNumT = pageHeader.getRecordNum();
                         for (int recordIndex = 0 ; recordIndex < recordNumT;recordIndex++) {
-                            byte[] record = diskManager.readOneRecord(tableName, pageIndex, recordIndex);
+                            byte[] record = diskManager.getOneRecord(tableName, pageIndex, recordIndex);
                             if (record[0] == 1) {
                                 // judge the record is valid
                                 if (whereExpression != null) {
@@ -200,7 +197,7 @@ public class SelectExec implements ExecPlan { // TODO:  change to lock and index
                         List<List<String>> attrValues = new ArrayList<>();
 
                         for (int i = 0; i < indexDataNum; i++) {
-                            byte[] indexData = diskManager.readOneIndexData(tableName, hashIndex+1,indexName, i,InsertExec.CalculateLength(typeList,attrValues));
+                            byte[] indexData = diskManager.getOneIndexData(tableName, hashIndex+1,indexName, i,InsertExec.CalculateLength(typeList,attrValues));
                             if (indexData[0] == 1) {
                                 List<Object> valueList1 = DataDump.load(typeList, indexData,0);
                                 Integer pageIndex = (Integer) valueList1.get(1);
@@ -216,10 +213,10 @@ public class SelectExec implements ExecPlan { // TODO:  change to lock and index
                     for (Integer pageIndex : pageIndexSet) {
                         long pageId = LockManager.computeId(tableName, DiskManager.AccessType.TABLE,null,pageIndex);
                         lockManager.lockRead(pageId,threadId);
-                        PageHeader pageHeader = diskManager.readPageHeader(tableName, pageIndex);
+                        PageHeader pageHeader = diskManager.getPageHeader(tableName, pageIndex);
                         int recordNumT = pageHeader.getRecordNum();
                         for (int recordIndex = 0 ; recordIndex < recordNumT;recordIndex++) {
-                            byte[] record = diskManager.readOneRecord(tableName, pageIndex, recordIndex);
+                            byte[] record = diskManager.getOneRecord(tableName, pageIndex, recordIndex);
                             if (record[0] == 1) {
                                 // judge the record is valid
                                 if (whereExpression != null) {
@@ -244,10 +241,10 @@ public class SelectExec implements ExecPlan { // TODO:  change to lock and index
                 for (int i = 0;i < pageNum;i++) {
                     long pageId = LockManager.computeId(tableName, DiskManager.AccessType.TABLE,null,i+1);
                     lockManager.lockRead(pageId,threadId);
-                    PageHeader pageHeader = diskManager.readPageHeader(tableName, i+1);
+                    PageHeader pageHeader = diskManager.getPageHeader(tableName, i+1);
                     int recordNumT = pageHeader.getRecordNum();
                     for (int j = 0;j < recordNumT;j++) {
-                        byte[] record = diskManager.readOneRecord(tableName, i+1, j);
+                        byte[] record = diskManager.getOneRecord(tableName, i+1, j);
                         if (record[0] == 1) {
                             recordSet.add(record);
                         }

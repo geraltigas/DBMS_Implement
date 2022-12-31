@@ -1,6 +1,6 @@
 package dbms.geraltigas.dataccess.execplan.impl;
 
-import dbms.geraltigas.buffer.BlockBuffer;
+import dbms.geraltigas.buffer.PageBuffer;
 import dbms.geraltigas.dataccess.DiskManager;
 import dbms.geraltigas.buffer.TableBuffer;
 import dbms.geraltigas.dataccess.Executor;
@@ -108,11 +108,11 @@ public class InsertExec implements ExecPlan {
         byte[] data = new byte[writeSize];
         DataDump.dumpSrc(data,per_size,colTypes,records);
         if (tableHeader.getTableLength() == 0) {
-            int pageNum = records.size()*per_size/(BlockBuffer.BLOCK_SIZE - PageHeader.PAGE_HEADER_LENGTH);
-            if (records.size()*per_size%(BlockBuffer.BLOCK_SIZE - PageHeader.PAGE_HEADER_LENGTH) != 0) {
+            int pageNum = records.size()*per_size/(PageBuffer.BLOCK_SIZE - PageHeader.PAGE_HEADER_LENGTH);
+            if (records.size()*per_size%(PageBuffer.BLOCK_SIZE - PageHeader.PAGE_HEADER_LENGTH) != 0) {
                 pageNum++;
             }
-            int recordPerBlock = (BlockBuffer.BLOCK_SIZE - PageHeader.PAGE_HEADER_LENGTH)/per_size;
+            int recordPerBlock = (PageBuffer.BLOCK_SIZE - PageHeader.PAGE_HEADER_LENGTH)/per_size;
             List<PageHeader> pageHeaders = new ArrayList<>(pageNum);
             for (int i = 0; i < pageNum; i++) {
                 pageHeaders.add(new PageHeader());
@@ -141,7 +141,7 @@ public class InsertExec implements ExecPlan {
                 for (int j = 0; j < recordNum; j++) {
                     System.arraycopy(dataT,j * per_size,tempData,0,per_size);
                     if (isTxn) transactionExecutor.addChangeLog(new RecordChangeLog(tableName,i+1,j,new byte[per_size]));
-                    diskManager.writeOneRecord(tableName,i+1,j,tempData);
+                    diskManager.setOneRecord(tableName,i+1,j,tempData);
                 }
                 diskManager.setPageHeader(tableName,i+1,pageHeader);
             }
@@ -153,9 +153,8 @@ public class InsertExec implements ExecPlan {
             int pageNum = tableHeader.getTableLength();
             long pageId = LockManager.computeId(tableName, DiskManager.AccessType.TABLE,null,pageNum);
             lockManager.lockWrite(pageId,threadId);
-            byte[] pageHeaderBytes = diskManager.readBytesAt(tableName, DiskManager.AccessType.TABLE, null, (long) (pageNum)*BlockBuffer.BLOCK_SIZE, PageHeader.PAGE_HEADER_LENGTH);
-            PageHeader pageHeader = new PageHeader(pageHeaderBytes);
-            int recordPerBlock = (BlockBuffer.BLOCK_SIZE - PageHeader.PAGE_HEADER_LENGTH)/per_size;
+            PageHeader pageHeader = diskManager.getPageHeader(tableName,pageNum);
+            int recordPerBlock = (PageBuffer.BLOCK_SIZE - PageHeader.PAGE_HEADER_LENGTH)/per_size;
             int firstPageRecordNum = pageHeader.getRecordNum();
             byte[] dataT = new byte[(records.size() > recordPerBlock - firstPageRecordNum ? recordPerBlock - firstPageRecordNum : records.size())*per_size];
             System.arraycopy(data,0,dataT,0,dataT.length);
@@ -171,7 +170,7 @@ public class InsertExec implements ExecPlan {
             for (int i = 0; i < recordNum; i++) {
                 if (isTxn) transactionExecutor.addChangeLog(new RecordChangeLog(tableName,pageNum,oldRecordNum+i,new byte[per_size]));
                 System.arraycopy(dataT,i * per_size,tempData,0,per_size);
-                diskManager.writeOneRecord(tableName,pageNum,oldRecordNum+i,tempData);
+                diskManager.setOneRecord(tableName,pageNum,oldRecordNum+i,tempData);
             }
             if (records.size() > recordNum) {
                 recordNum = records.size() - recordNum;
@@ -202,7 +201,7 @@ public class InsertExec implements ExecPlan {
                     for (int j = 0; j < recordNumT; j++) {
                         if (isTxn) transactionExecutor.addChangeLog(new RecordChangeLog(tableName,pageNum+i+1,j,new byte[per_size]));
                         System.arraycopy(dataTT,j * per_size,tempDataT,0,per_size);
-                        diskManager.writeOneRecord(tableName,pageNum+i+1,j,tempDataT);
+                        diskManager.setOneRecord(tableName,pageNum+i+1,j,tempDataT);
                     }
                 }
                 TableHeader oldTableHeader = new TableHeader(tableHeader);

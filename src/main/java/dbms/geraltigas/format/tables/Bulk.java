@@ -14,6 +14,7 @@ import java.util.*;
 
 @Setter
 @Getter
+@Deprecated
 public class Bulk {
     // usage:
     // flush: means write the data in memory to disk(asynchronously)
@@ -43,23 +44,23 @@ public class Bulk {
     }
 
     public void flush() throws BlockException, DataDirException, IOException {
-        int bulkNum = bulkContent.size();
-        byte[] bulkData = new byte[bulkNum * 4+4];
-        diskManager.writeBytesAt(tableName, DiskManager.AccessType.BULK,null,DataDump.intToBytes(bulkNum),0);
-        int temp = bulkNum*4+4;
-        for (int i = 4; i < temp; i+=4) {
-            diskManager.writeBytesAt(tableName, DiskManager.AccessType.BULK,null,DataDump.intToBytes(bulkContent.iterator().next()),i);
-        }
+//        int bulkNum = bulkContent.size();
+//        byte[] bulkData = new byte[bulkNum * 4+4];
+//        diskManager.setBytesAt(tableName, DiskManager.AccessType.BULK,null,DataDump.intToBytes(bulkNum),0);
+//        int temp = bulkNum*4+4;
+//        for (int i = 4; i < temp; i+=4) {
+//            diskManager.setBytesAt(tableName, DiskManager.AccessType.BULK,null,DataDump.intToBytes(bulkContent.iterator().next()),i);
+//        }
     }
 
     public void initBulk() throws BlockException, IOException, DataDirException {
-        ApplicationContextUtils.autowire(this);
-        byte[] firstPageData = diskManager.readBytesAt(tableName, DiskManager.AccessType.BULK, null, 0, 4096);
-        bulkNum = DataDump.bytesToInt(firstPageData, 0);
-        byte[] bulkData = diskManager.readBytesAt(tableName, DiskManager.AccessType.BULK, null, 4, bulkNum*4);
-        int temp = bulkNum*4+4;
-        for (int i = 4; i < temp; i+=4) {
-            bulkContent.add(DataDump.bytesToInt(bulkData, 0));
-        }
+//        ApplicationContextUtils.autowire(this);
+//        byte[] firstPageData = diskManager.getBytesAt(tableName, DiskManager.AccessType.BULK, null, 0, 4096);
+//        bulkNum = DataDump.bytesToInt(firstPageData, 0);
+//        byte[] bulkData = diskManager.getBytesAt(tableName, DiskManager.AccessType.BULK, null, 4, bulkNum*4);
+//        int temp = bulkNum*4+4;
+//        for (int i = 4; i < temp; i+=4) {
+//            bulkContent.add(DataDump.bytesToInt(bulkData, 0));
+//        }
     }
 }

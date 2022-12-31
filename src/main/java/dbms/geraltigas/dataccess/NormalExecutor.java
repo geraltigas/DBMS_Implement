@@ -15,7 +15,6 @@ public class NormalExecutor implements Executor {
 
     private ConcurrentLinkedDeque<ExecPlan> execPlans = new ConcurrentLinkedDeque<>();
 
-
     private ExecuteEngine executeEngine;
 
     @Override

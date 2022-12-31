@@ -26,6 +26,6 @@ public class RecordChangeLog extends ChangeLog {
     }
     @Override
     public void recover() throws BlockException, DataDirException, IOException {
-        diskManager.writeOneRecord(tableName, pageIndex, recordIndex, oldRecord);
+        diskManager.setOneRecord(tableName, pageIndex, recordIndex, oldRecord);
     }
 }

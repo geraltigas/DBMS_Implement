@@ -30,6 +30,6 @@ public class IndexChangeLog extends ChangeLog {
     }
     @Override
     public void recover() throws BlockException, IOException {
-        diskManager.writeOneIndexData(tableName, pageIndex, indexName, indexDataIndex, indexDataLength, oldIndexData);
+        diskManager.setOneIndexData(tableName, pageIndex, indexName, indexDataIndex, indexDataLength, oldIndexData);
     }
 }

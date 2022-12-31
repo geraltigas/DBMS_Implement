@@ -1,6 +1,6 @@
 package dbms.geraltigas.dataccess;
 
-import dbms.geraltigas.buffer.BlockBuffer;
+import dbms.geraltigas.buffer.PageBuffer;
 import dbms.geraltigas.exception.BlockException;
 import dbms.geraltigas.exception.DataDirException;
 import dbms.geraltigas.format.indexs.IndexHeader;
@@ -14,43 +14,52 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 
-import static dbms.geraltigas.buffer.BlockBuffer.BLOCK_SIZE;
+import static dbms.geraltigas.buffer.PageBuffer.BLOCK_SIZE;
 
 
 @Component
 public class DiskManager {
 
     @Autowired
-    BlockBuffer blockBuffer;
+    PageBuffer pageBuffer;
     @Autowired
     ExecuteEngine executeEngine;
 
     public TableHeader getTableHeader(String tableName) throws BlockException, DataDirException, IOException {
-        byte[] header = readBytesAt(tableName,AccessType.TABLE ,null,0, TableHeader.TABLE_HEADER_LENGTH);
+        byte[] header = getBytesAt(tableName,AccessType.TABLE ,null,0, TableHeader.TABLE_HEADER_LENGTH);
         TableHeader tableHeader = new TableHeader(header);
         return tableHeader;
     }
 
-    public void setTableHeader(String tableName, TableHeader tableHeader) throws BlockException, IOException {
-        writeBytesAt(tableName, AccessType.TABLE,null, tableHeader.ToBytes(), 0);
+    public void setTableHeader(String tableName, TableHeader tableHeader) throws DataDirException {
+        File file = new File(executeEngine.getDateDir() + "/tables/" + tableName+".tbl");
+        if (!file.exists()) {
+            throw new DataDirException("Table file not exists");
+        }
+        byte[] data = tableHeader.ToBytes();
+        try {
+            setBytesAt(tableName,AccessType.TABLE,null, data, 0);
+        } catch (BlockException | IOException e) {
+            e.printStackTrace();
+        }
     }
 
     public void setIndexPageHeader(String tableName, String indexName, int pageIndex, IndexPageHeader indexPageHeader) throws BlockException, IOException {
-        writeBytesAt(tableName, AccessType.INDEX, indexName, indexPageHeader.ToBytes(), (long) pageIndex * BLOCK_SIZE);
+        setBytesAt(tableName, AccessType.INDEX, indexName, indexPageHeader.ToBytes(), (long) pageIndex * BLOCK_SIZE);
     }
 
     public IndexPageHeader getIndexPageHeader(String tableName, String indexName, int pageIndex) throws BlockException, IOException, DataDirException {
-        byte[] header = readBytesAt(tableName, AccessType.INDEX, indexName, (long) pageIndex * BLOCK_SIZE, IndexPageHeader.INDEX_PAGE_HEADER_LENGTH);
+        byte[] header = getBytesAt(tableName, AccessType.INDEX, indexName, (long) pageIndex * BLOCK_SIZE, IndexPageHeader.INDEX_PAGE_HEADER_LENGTH);
         return new IndexPageHeader(header);
     }
 
     public IndexHeader getIndexHeader(String tableName, String indexName) throws BlockException, DataDirException, IOException {
-        byte[] data = readBytesAt(tableName,AccessType.INDEX,indexName, 0, IndexHeader.INDEX_HEADER_LENGTH);
+        byte[] data = getBytesAt(tableName,AccessType.INDEX,indexName, 0, IndexHeader.INDEX_HEADER_LENGTH);
         return new IndexHeader(data);
     }
 
-    public void setIndexHeader(String tableName, String indexName, IndexHeader indexHeader) throws BlockException, DataDirException, IOException {
-        writeBytesAt(tableName,AccessType.INDEX,indexName, indexHeader.ToBytes(), 0);
+    public void setIndexHeader(String tableName, String indexName, IndexHeader indexHeader) throws BlockException, IOException {
+        setBytesAt(tableName,AccessType.INDEX,indexName, indexHeader.ToBytes(), 0);
     }
 
     public enum AccessType {
@@ -59,15 +68,15 @@ public class DiskManager {
         BULK
     }
 
-    public byte[] readPage(String tableName, int index) throws BlockException, DataDirException, IOException {
-        return readBytesAt(tableName, AccessType.TABLE, null, index * BLOCK_SIZE, BLOCK_SIZE);
+    private byte[] getPage(String tableName, int index) throws BlockException, DataDirException, IOException {
+        return getBytesAt(tableName, AccessType.TABLE, null, index * BLOCK_SIZE, BLOCK_SIZE);
     }
 
-    public void writePage(String tableName, int index,int offset, byte[] data) throws BlockException, IOException {
-        writeBytesAt(tableName, AccessType.TABLE, null, data, index * BLOCK_SIZE + offset);
+    private void setPage(String tableName, int index, int offset, byte[] data) throws BlockException, IOException {
+        setBytesAt(tableName, AccessType.TABLE, null, data, index * BLOCK_SIZE + offset);
     }
 
-    public byte[] readBytesAt(String tableName, AccessType type, String appendPath, long offset, int length) throws IOException, DataDirException, BlockException { // using page buffer to read byte array include header
+    public byte[] getBytesAt(String tableName, AccessType type, String appendPath, long offset, int length) throws IOException, DataDirException, BlockException { // using page buffer to read byte array include header
         File file = new File(executeEngine.getDateDir() + "/tables/" + tableName+".tbl");
         if (!file.exists()) {
             throw new DataDirException("Table " + tableName + " does not exist");
@@ -78,13 +87,13 @@ public class DiskManager {
         int blockEndIndex = blockEnd / BLOCK_SIZE;
         int blockEndOffset = blockEnd % BLOCK_SIZE;
         byte[] data = new byte[length];
-        ArrayList<BlockBuffer.Page> pages = new ArrayList<>(blockEndIndex - blockId + 1);
+        ArrayList<PageBuffer.Page> pages = new ArrayList<>(blockEndIndex - blockId + 1);
         for (int i = blockId; i <= blockEndIndex; i++) {
-            BlockBuffer.Page page = blockBuffer.getPage(tableName, type, appendPath , i);
+            PageBuffer.Page page = pageBuffer.getPage(tableName, type, appendPath , i);
             pages.add(page);
         }
         for (int i = 0; i < pages.size(); i++) {
-            BlockBuffer.Page page = pages.get(i);
+            PageBuffer.Page page = pages.get(i);
             int start = 0;
             int end = BLOCK_SIZE;
             if (i == 0) {
@@ -98,19 +107,19 @@ public class DiskManager {
         return data;
     }
 
-    public void writeBytesAt(String tableName, AccessType type, String appendName, byte[] data, long offset) throws BlockException, IOException {
+    public void setBytesAt(String tableName, AccessType type, String appendName, byte[] data, long offset) throws BlockException, IOException {
         int blockIndex = (int) (offset / BLOCK_SIZE);
         int blockOffset = (int) (offset % BLOCK_SIZE);
         int blockEnd = (int) (offset + data.length);
         int blockEndIndex = (int) (blockEnd / BLOCK_SIZE);
         int blockEndOffset = (int) (blockEnd % BLOCK_SIZE);
-        ArrayList<BlockBuffer.Page> pages = new ArrayList<>(blockEndIndex - blockIndex + 1);
+        ArrayList<PageBuffer.Page> pages = new ArrayList<>(blockEndIndex - blockIndex + 1);
         for (int i = blockIndex; i <= blockEndIndex; i++) {
-            BlockBuffer.Page page = blockBuffer.getPage(tableName,type,appendName, i);
+            PageBuffer.Page page = pageBuffer.getPage(tableName,type,appendName, i);
             pages.add(page);
         }
         for (int i = 0; i < pages.size(); i++) {
-            BlockBuffer.Page page = pages.get(i);
+            PageBuffer.Page page = pages.get(i);
             if (i == 0) {
                 page.writeBytes(data, blockOffset, Math.min(BLOCK_SIZE - blockOffset, data.length));
             } else if (i == pages.size() - 1) {
@@ -119,33 +128,22 @@ public class DiskManager {
                 page.writeBytes(data, 0, BLOCK_SIZE);
             }
         }
-        blockBuffer.FlushPages(pages);
+        pageBuffer.FlushPages(pages);
     }
 
-    public void writeTableFileHeader(String tableName, TableHeader tableHeader) throws DataDirException {
-        File file = new File(executeEngine.getDateDir() + "/tables/" + tableName+".tbl");
-        if (!file.exists()) {
-            throw new DataDirException("Table file not exists");
-        }
-        byte[] data = tableHeader.ToBytes();
-        try {
-            writeBytesAt(tableName,AccessType.TABLE,null, data, 0);
-        } catch (BlockException | IOException e) {
-            e.printStackTrace();
-        }
-    }
 
-    public byte[] readRecords(String tableName,int pageIndex) throws BlockException, DataDirException, IOException { // TODO: fix here
-        byte[] pageData = readPage(tableName, pageIndex);
-        PageHeader pageHeader = new PageHeader(pageData);
-        int lastRecordOffset = pageHeader.getLastRecordOffset();
-        byte[] records = new byte[pageHeader.getRecordNum() * pageHeader.getRecordLength()];
-        System.arraycopy(pageData, lastRecordOffset, records, 0, records.length);
-        return records;
-    }
 
-    public byte[] readOneRecord(String tableName, int pageIndex, int recordIndex) throws BlockException, DataDirException, IOException {
-        byte[] pageData = readPage(tableName, pageIndex);
+//    public byte[] getRecords(String tableName, int pageIndex) throws BlockException, DataDirException, IOException { // TODO: fix here
+//        byte[] pageData = getPage(tableName, pageIndex);
+//        PageHeader pageHeader = new PageHeader(pageData);
+//        int lastRecordOffset = pageHeader.getLastRecordOffset();
+//        byte[] records = new byte[pageHeader.getRecordNum() * pageHeader.getRecordLength()];
+//        System.arraycopy(pageData, lastRecordOffset, records, 0, records.length);
+//        return records;
+//    }
+
+    public byte[] getOneRecord(String tableName, int pageIndex, int recordIndex) throws BlockException, DataDirException, IOException {
+        byte[] pageData = getPage(tableName, pageIndex);
         PageHeader pageHeader = new PageHeader(pageData);
         int lastRecordOffset = pageHeader.getLastRecordOffset();
         byte[] record = new byte[pageHeader.getRecordLength()];
@@ -153,40 +151,40 @@ public class DiskManager {
         return record;
     }
 
-    public void writeOneRecord(String tableName, int pageIndex, int recordIndex, byte[] record) throws BlockException, DataDirException, IOException {
-        byte[] pageData = readPage(tableName, pageIndex);
+    public void setOneRecord(String tableName, int pageIndex, int recordIndex, byte[] record) throws BlockException, DataDirException, IOException {
+        byte[] pageData = getPage(tableName, pageIndex);
         PageHeader pageHeader = new PageHeader(pageData);
         int lastRecordOffset = pageHeader.getLastRecordOffset();
         System.arraycopy(record, 0, pageData, lastRecordOffset + ((pageHeader.getRecordNum()-1)-recordIndex) * pageHeader.getRecordLength(), record.length);
-        writePage(tableName, pageIndex, 0, pageData);
+        setPage(tableName, pageIndex, 0, pageData);
     }
 
-    public PageHeader readPageHeader(String tableName, int pageIndex) throws BlockException, DataDirException, IOException {
-        byte[] pageData = readPage(tableName, pageIndex);
+    public PageHeader getPageHeader(String tableName, int pageIndex) throws BlockException, DataDirException, IOException {
+        byte[] pageData = getPage(tableName, pageIndex);
         return new PageHeader(pageData);
     }
 
     public void setPageHeader(String tableName, int pageIndex, PageHeader pageHeader) throws BlockException, DataDirException, IOException {
-        byte[] pageData = readPage(tableName, pageIndex);
+        byte[] pageData = getPage(tableName, pageIndex);
         System.arraycopy(pageHeader.ToBytes(), 0, pageData, 0, PageHeader.PAGE_HEADER_LENGTH);
-        writePage(tableName, pageIndex, 0, pageData);
+        setPage(tableName, pageIndex, 0, pageData);
     }
 
-    public void writeRecord(String tableName,int pageIndex, int index, byte[] record, int recordLength,PageHeader pageHeader) {
-        long offset = (long) (pageIndex) * BLOCK_SIZE + (long) index * recordLength + pageHeader.getLastRecordOffset();
-        try {
-            writeBytesAt(tableName,AccessType.TABLE,null, record, offset);
-        } catch (BlockException | IOException e) {
-            e.printStackTrace();
-        }
+//    public void setRecord(String tableName, int pageIndex, int index, byte[] record, int recordLength, PageHeader pageHeader) {
+//        long offset = (long) (pageIndex) * BLOCK_SIZE + (long) index * recordLength + pageHeader.getLastRecordOffset();
+//        try {
+//            setBytesAt(tableName,AccessType.TABLE,null, record, offset);
+//        } catch (BlockException | IOException e) {
+//            e.printStackTrace();
+//        }
+//    }
+
+    public byte[] getOneIndexData(String tableName, int pageIndex, String indexName, int index, int recordLength) throws BlockException, DataDirException, IOException {
+        return getBytesAt(tableName, AccessType.INDEX, indexName, (long) (pageIndex) * BLOCK_SIZE + (long) index * recordLength + IndexPageHeader.INDEX_PAGE_HEADER_LENGTH, recordLength);
     }
 
-    public byte[] readOneIndexData(String tableName, int pageIndex,String indexName, int index, int recordLength) throws BlockException, DataDirException, IOException {
-        return readBytesAt(tableName, AccessType.INDEX, indexName, (long) (pageIndex) * BLOCK_SIZE + (long) index * recordLength + IndexPageHeader.INDEX_PAGE_HEADER_LENGTH, recordLength);
-    }
-
-    public void writeOneIndexData(String tableName, int pageIndex,String indexName, int index, int recordLength, byte[] data) throws BlockException, IOException {
-        writeBytesAt(tableName, AccessType.INDEX, indexName, data, (long) (pageIndex) * BLOCK_SIZE + (long) index * recordLength + IndexPageHeader.INDEX_PAGE_HEADER_LENGTH);
+    public void setOneIndexData(String tableName, int pageIndex, String indexName, int index, int recordLength, byte[] data) throws BlockException, IOException {
+        setBytesAt(tableName, AccessType.INDEX, indexName, data, (long) (pageIndex) * BLOCK_SIZE + (long) index * recordLength + IndexPageHeader.INDEX_PAGE_HEADER_LENGTH);
     }
 
 }

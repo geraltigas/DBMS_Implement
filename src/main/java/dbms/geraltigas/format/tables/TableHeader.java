@@ -32,9 +32,4 @@ public class TableHeader { // in the first block of the table file
         data = DataDump.dump(List.of(TableDefine.Type.INTEGER), List.of(tableLength));
         return data;
     }
-
-    public int getHeaderLength() {
-        return TABLE_HEADER_LENGTH;
-    }
-
 }

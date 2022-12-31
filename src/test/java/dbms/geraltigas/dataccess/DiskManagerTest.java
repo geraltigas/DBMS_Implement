@@ -25,16 +25,16 @@ class DiskManagerTest {
 
     @Test
     void readOneRecord() throws BlockException, DataDirException, IOException {
-        byte[] data = diskManager.readOneRecord("test1",1, 0);
+        byte[] data = diskManager.getOneRecord("test1",1, 0);
         data[0] = 0;
         data[1] = 10;
-        diskManager.writeOneRecord("test1", 1, 0, data);
+        diskManager.setOneRecord("test1", 1, 0, data);
         while (true){}
     }
 
     @Test
     void readPageHeader() throws BlockException, DataDirException, IOException {
-        PageHeader pageHeader = diskManager.readPageHeader("test1", 1);
+        PageHeader pageHeader = diskManager.getPageHeader("test1", 1);
         pageHeader.setRecordNum(6);
         diskManager.setPageHeader("test1", 1, pageHeader);
         while (true) {}

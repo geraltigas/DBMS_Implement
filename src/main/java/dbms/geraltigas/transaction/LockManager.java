@@ -12,6 +12,9 @@ import java.util.concurrent.locks.ReentrantLock;
 @Component
 public class LockManager { // add read or write lock to every page
 
+    ReentrantLock mutex = new ReentrantLock();
+    Map<Long, PageLockInfo> lockMap = new TreeMap<>();
+
     @Setter
     @Getter
     class PageLockInfo {
@@ -21,13 +24,11 @@ public class LockManager { // add read or write lock to every page
         Condition condition;
     }
 
-    ReentrantLock mutex = new ReentrantLock();
-
     enum LockType {
         READ, WRITE
     }
 
-    Map<Long, PageLockInfo> lockMap = new TreeMap<>();
+
 
     public void lockRead(long pageId, long transactionId) {
         mutex.lock();
@@ -139,6 +140,7 @@ public class LockManager { // add read or write lock to every page
         mutex.unlock();
     }
 
+    @Deprecated
     public void upgradeLock(long pageId, long transactionId) {
         mutex.lock();
         if (lockMap.containsKey(pageId)) {
