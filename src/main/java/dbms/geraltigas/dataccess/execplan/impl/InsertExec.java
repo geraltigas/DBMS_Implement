@@ -84,29 +84,55 @@ public class InsertExec implements ExecPlan {
             List<Object> record = new LinkedList<>();
             for (int i = 0; i < map.length; i++) {
                 if (map[i] == -1) {
-                    throw new FieldNotFoundException("Field "+ definedColNames.get(i) +"not found");
+                    return "Field "+ definedColNames.get(i) +" not found in value list";
                 } else {
-                    switch (tableDefine.getColTypes().get(i)) {
-                        case INTEGER -> record.add(Integer.parseInt(value.get(map[i]).toString()));
-                        case VARCHAR -> record.add(value.get(map[i]).toString());
-                        default -> throw new FieldNotFoundException("Field " + definedColNames.get(i) + "not found");
+                    try {
+                        switch (tableDefine.getColTypes().get(i)) {
+                            case INTEGER -> record.add(Integer.parseInt(value.get(map[i]).toString()));
+                            case VARCHAR -> {
+                                String valueS = value.get(map[i]).toString();
+                                if (!valueS.contains("'")) {
+                                    throw new NumberFormatException("Varchar value must be in ''");
+                                }
+                                record.add(valueS.replace("'", ""));
+                            }
+                            case FLOAT -> {
+                                Float floatV = Float.parseFloat(value.get(map[i]).toString());
+                                if (floatV.isInfinite() || floatV.isNaN()) {
+                                    return "Value Format Exception, please insert valid values. \nFor input string: \"" + value.get(map[i]).toString() + "\"";
+                                }
+                                record.add(floatV);
+                            }
+                            default -> throw new FieldNotFoundException("Field " + definedColNames.get(i) + "not found");
+                        }
+                    } catch (NumberFormatException e) {
+                        return "Value Format Exception, please insert valid values. \n" + e.getMessage();
                     }
                 }
+            }
+            if (record.size() != definedColNames.size()) {
+                return "Value Format Exception, please insert valid values. \n" + "Column not found";
             }
             records.add(record);
         }
 
         return insertRecords(records,tableDefine.getColTypes(),tableDefine.getColAttrs());
     }
-
+// TODO: insert with index
     private String insertRecords(List<List<Object>> records, List<TableDefine.Type> colTypes, List<List<String>> colAttrs) throws BlockException, IOException, DataDirException, DataTypeException { // TODO: need massive test
+        if (records.size() != 1) {
+            return "Not support multi insert";
+        }
         long tableHeaderId = LockManager.computeId(tableName, DiskManager.AccessType.TABLE,null,0);
         lockManager.lockWrite(tableHeaderId,threadId);
         TableHeader tableHeader = diskManager.getTableHeader(tableName);
         int per_size = CalculateLength(colTypes,colAttrs);
         int writeSize = per_size * records.size();
         byte[] data = new byte[writeSize];
-        DataDump.dumpSrc(data,per_size,colTypes,records);
+        boolean isOk = DataDump.dumpSrc(data,per_size,colTypes,records);
+        if (!isOk) {
+            return "Value Format Exception, please insert valid values. \n"+"String length too long.";
+        }
         if (tableHeader.getTableLength() == 0) {
             int pageNum = records.size()*per_size/(PageBuffer.BLOCK_SIZE - PageHeader.PAGE_HEADER_LENGTH);
             if (records.size()*per_size%(PageBuffer.BLOCK_SIZE - PageHeader.PAGE_HEADER_LENGTH) != 0) {
@@ -191,7 +217,7 @@ public class InsertExec implements ExecPlan {
                         pageHeaderT.setLastRecordOffset(4096 - per_size*recordPerBlock);
                     }
                     byte[] dataTT = new byte[pageHeaderT.getRecordNum()*pageHeaderT.getRecordLength()];
-                    System.arraycopy(data,per_size*recordPerBlock*i+firstPageRecordNum*per_size,dataTT,0,dataTT.length);
+                    System.arraycopy(data,0,dataTT,0,dataTT.length);
                     pageId = LockManager.computeId(tableName, DiskManager.AccessType.TABLE,null,pageNum+i+1);
                     lockManager.lockWrite(pageId,threadId);
                     if (isTxn) transactionExecutor.addChangeLog(new TablePageHeaderChangeLog(tableName,pageNum+i+1,oldPageHeaderT));

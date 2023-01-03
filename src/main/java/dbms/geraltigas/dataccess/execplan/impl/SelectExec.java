@@ -23,15 +23,14 @@ import java.io.IOException;
 import java.util.*;
 
 public class SelectExec implements ExecPlan { // TODO:  change to lock and index
-
+ // TODO: implement hash join
     List<Expression> expressions;
-    private long threadId;
-
-    public static final int SELECT_PAGE_NUMBER = 5;
-
     List<String> names;
     List<String> tableNames;
     Expression whereExpression;
+
+    private long threadId;
+
     boolean isTxn;
     Executor transactionExecutor;
     public void setTxn(boolean txn, Executor executor) {
@@ -91,10 +90,14 @@ public class SelectExec implements ExecPlan { // TODO:  change to lock and index
                             byte[] record = diskManager.getOneRecord(tableName, pageIndex, recordIndex);
                             if (record[0] == 1) {
                                 // judge the record is valid
-                                if (whereExpression != null) {
-                                    whereExpression.eval(record, tableDefine, names, expressions, res);
-                                }else {
-                                    Expression.nullEval(record, tableDefine, names, expressions, res);
+                                try {
+                                    if (whereExpression != null) {
+                                        whereExpression.eval(record, tableDefine, names, expressions, res);
+                                    }else {
+                                        Expression.nullEval(record, tableDefine, names, expressions, res);
+                                    }
+                                }catch (DataTypeException e) {
+                                    return e.getMessage();
                                 }
                             }
                         }
@@ -155,10 +158,14 @@ public class SelectExec implements ExecPlan { // TODO:  change to lock and index
                             byte[] record = diskManager.getOneRecord(tableName, pageIndex, recordIndex);
                             if (record[0] == 1) {
                                 // judge the record is valid
-                                if (whereExpression != null) {
-                                    whereExpression.eval(record, tableDefine, names, expressions, res);
-                                }else {
-                                    Expression.nullEval(record, tableDefine, names, expressions, res);
+                                try {
+                                    if (whereExpression != null) {
+                                        whereExpression.eval(record, tableDefine, names, expressions, res);
+                                    }else {
+                                        Expression.nullEval(record, tableDefine, names, expressions, res);
+                                    }
+                                }catch (DataTypeException e) {
+                                    return e.getMessage();
                                 }
                             }
                         }
@@ -219,10 +226,14 @@ public class SelectExec implements ExecPlan { // TODO:  change to lock and index
                             byte[] record = diskManager.getOneRecord(tableName, pageIndex, recordIndex);
                             if (record[0] == 1) {
                                 // judge the record is valid
-                                if (whereExpression != null) {
-                                    whereExpression.eval(record, tableDefine, names, expressions, res);
-                                }else {
-                                    Expression.nullEval(record, tableDefine, names, expressions, res);
+                                try {
+                                    if (whereExpression != null) {
+                                        whereExpression.eval(record, tableDefine, names, expressions, res);
+                                    }else {
+                                        Expression.nullEval(record, tableDefine, names, expressions, res);
+                                    }
+                                }catch (DataTypeException e) {
+                                    return e.getMessage();
                                 }
                             }
                         }
@@ -263,10 +274,15 @@ public class SelectExec implements ExecPlan { // TODO:  change to lock and index
             List<List<TableDefine.Type>> types = new ArrayList<>();
             List<TableDefine.Type> typeList = new ArrayList<>();
             List<String> colNameList = new ArrayList<>();
+            Set<String> colNameSet = new TreeSet<>();
             for (String tableName : tableNames) {
                 types.add(tableBuffer.getTableDefine(tableName).getColTypes());
                 typeList.addAll(tableBuffer.getTableDefine(tableName).getColTypes());
                 colNameList.addAll(tableBuffer.getTableDefine(tableName).getColNames());
+                colNameSet.addAll(tableBuffer.getTableDefine(tableName).getColNames());
+            }
+            if (colNameSet.size() != colNameList.size()) {
+                return "Ambiguous column name";
             }
             while (from.hasNext()) {
                 List<byte[]> record = from.next();
@@ -283,11 +299,16 @@ public class SelectExec implements ExecPlan { // TODO:  change to lock and index
             lockManager.unlockAll(threadId);
         }
 
+        res.add("Total records: " + (res.size()-1));
+
         return String.join("\n", res);
     }
 
     private boolean isSimpleWhereExpression(Expression whereExpression,Set<String> allUsedColumnNameSet,Set<String> haveIndexColumnName) {
         if (whereExpression == null) {
+            return false;
+        }
+        if (haveIndexColumnName.size() == 0) {
             return false;
         }
         boolean isSimple = true;
@@ -362,6 +383,9 @@ public class SelectExec implements ExecPlan { // TODO:  change to lock and index
         List<Expression> equelExpressionList = new ArrayList<>();
         addAllEquelExpression(whereExpression, equelExpressionList);
         for (Expression expression : equelExpressionList) {
+            if (expression.getRight().getOp() == expression.getRight().getOp()) {
+                continue;
+            }
             if (expression.getLeft().getOp() == Expression.Op.NULL) {
                 columnNameList.add(expression.getLeft().getName());
                 valueList.add(new Pair<>(expression.getRight().getOp(), expression.getRight().getValue()));
@@ -383,7 +407,10 @@ public class SelectExec implements ExecPlan { // TODO:  change to lock and index
     }
 
     private void addPrintHead(List<String> res, List<String> names) {
-        res.add(String.join(",", names));
+        for (int i = 0; i < names.size(); i++) {
+            names.set(i, String.format("%-10s", names.get(i)));
+        }
+        res.add("|"+String.join("|",names)+"|");
     }
 
     public SelectExec(List<Expression> expressions, List<String> names, List<String> tableName, Expression whereExpression) {

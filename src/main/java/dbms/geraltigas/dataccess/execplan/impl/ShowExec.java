@@ -14,9 +14,13 @@ import java.util.Arrays;
 public class ShowExec implements ExecPlan {
     private long threadId;
     private String variable;
+    private String message = null;
 
-    public ShowExec(String variable) {
-        this.variable = variable.split(" ")[1];
+    public ShowExec(String variable,String message) {
+        if (variable != null) {
+            this.variable = variable.split(" ")[1];
+        }
+        this.message = message;
     }
     @Override
     public void setThreadId(long threadId) {
@@ -35,6 +39,9 @@ public class ShowExec implements ExecPlan {
     }
     @Override
     public String execute(String dataPath) throws IOException, DataTypeException, FieldNotFoundException, BlockException, DataDirException {
+        if (message != null) {
+            return message;
+        }
         switch (variable) {
             case "tables" -> {
                 Path path = Path.of(dataPath).resolve("tables");

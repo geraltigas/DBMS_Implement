@@ -48,8 +48,8 @@ public class Worker implements Runnable {
         BufferedReader reader = new BufferedReader(new java.io.InputStreamReader(inputStream));
         String line;
         try {
-            outputStream.write("OK".getBytes());
-            outputStream.write("[Server] Welcome to Geraltigas DBMS!".getBytes());
+            outputStream.write("OK\n".getBytes());
+            outputStream.write("[Server] Welcome to Geraltigas DBMS!\n".getBytes());
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -59,24 +59,43 @@ public class Worker implements Runnable {
 
                 while ((line = reader.readLine()) != null) {
                     System.out.println("["+threadId+"] "+"Received: " + line);
-                    String res = doWork(line)+"\n";
+                    String res = null;
+                    try {
+                        res = doWork(line)+"\n";
+                    } catch (DataTypeException e) {
+                        handleDataTypeException(e,outputStream);
+                        continue;
+                    }
                     outputStream.write(res.getBytes());
                 }
             }
         } catch (IOException e) {
-            System.out.println("["+threadId+"] "+"Client disconnected");
-            try {
-                socket.close();
-                System.out.println("["+threadId+"] "+"Socket closed");
-                return;
-            } catch (IOException ex) {
-                throw new RuntimeException(ex);
-            }
+            handlerSocketClosed();
         }
         catch ( JSQLParserException | HandleException | ExecutionException | InterruptedException e) {
             e.printStackTrace();
-        } catch (DataTypeException | DropTypeException | ExpressionException e) {
+        } catch ( DropTypeException | ExpressionException e) {
             throw new RuntimeException(e);
+        }
+
+    }
+
+    private void handleDataTypeException(DataTypeException e, OutputStream outputStream) {
+        try {
+            outputStream.write("DataType not support\n".getBytes());
+        } catch (IOException ex) {
+            handlerSocketClosed();
+        }
+    }
+
+    private void handlerSocketClosed() {
+        System.out.println("["+threadId+"] "+"Client disconnected");
+        try {
+            socket.close();
+            System.out.println("["+threadId+"] "+"Socket closed");
+            return;
+        } catch (IOException ex) {
+            throw new RuntimeException(ex);
         }
     }
 
@@ -101,7 +120,7 @@ public class Worker implements Runnable {
     // public
     public Worker(Socket socket) {
         this.socket = socket;
-        this.state = State.AUTHENTICATED; // here to control the initial state of the connection
+        this.state = State.CONNECTED; // here to control the initial state of the connection
     }
 
     public Worker() {
@@ -290,7 +309,7 @@ public class Worker implements Runnable {
             }
         });
         String res = future.get();
-        workerPrint("Result: " + res);
+        workerPrint("Result: \n" + res);
         return res;
     }
 

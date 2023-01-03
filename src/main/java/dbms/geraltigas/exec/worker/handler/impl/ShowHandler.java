@@ -21,7 +21,7 @@ public class ShowHandler implements Handler {
     }
 
     public int handleShow(String var) throws HandleException, DataTypeException, DropTypeException, ExpressionException {
-        ShowExec execPlan = new ShowExec(var);
+        ShowExec execPlan = new ShowExec(var,null);
         ApplicationContextUtils.autowire(execPlan);
         execPlan.setThreadId(threadId);
         executeEngine.addExecPlan(execPlan);

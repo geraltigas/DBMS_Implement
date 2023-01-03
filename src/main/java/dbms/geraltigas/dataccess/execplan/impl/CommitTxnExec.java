@@ -4,14 +4,12 @@ import dbms.geraltigas.buffer.TableBuffer;
 import dbms.geraltigas.dataccess.DiskManager;
 import dbms.geraltigas.dataccess.ExecuteEngine;
 import dbms.geraltigas.dataccess.Executor;
-import dbms.geraltigas.dataccess.TransactionExecutor;
 import dbms.geraltigas.dataccess.execplan.ExecPlan;
 import dbms.geraltigas.exception.*;
 import dbms.geraltigas.transaction.LockManager;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import java.io.IOException;
-import java.util.concurrent.locks.Lock;
 
 public class CommitTxnExec implements ExecPlan {
     @Autowired

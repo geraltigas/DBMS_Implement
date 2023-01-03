@@ -1,6 +1,5 @@
 import socket
 
-
 def main():
     print("Welcome to DBMS demo by geraltigas")
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -14,7 +13,6 @@ def main():
     print(res)
     name = "?"
     while True:
-
         command = input(" "+ name +" > ")+"\n"
         s.send(command.encode('utf-8'))
         if command == "exit\n": # here to exit client and close socket

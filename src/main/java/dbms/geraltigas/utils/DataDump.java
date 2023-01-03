@@ -133,12 +133,17 @@ public class DataDump {
         return result;
     }
 
-    public static byte[] dumpSrc(byte[] src, int per_size, List<TableDefine.Type> typs, List<List<Object>> records) {
+    public static boolean dumpSrc(byte[] src, int per_size, List<TableDefine.Type> typs, List<List<Object>> records) {
+        boolean isOk = true;
         for (int i = 0; i < records.size(); i++) {
             byte[] temp = dumpWithValid(typs, records.get(i));
+            if (per_size < temp.length) {
+                isOk = false;
+                return isOk;
+            }
             System.arraycopy(temp, 0, src, i * per_size, temp.length);
         }
-        return src;
+        return isOk;
     }
 
     public static List<Object> load(List<TableDefine.Type> typs, byte[] src, int offset) {

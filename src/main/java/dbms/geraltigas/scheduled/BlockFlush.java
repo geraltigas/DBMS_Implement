@@ -26,14 +26,14 @@ public class BlockFlush {
         System.out.println("[DataPersistence] Flush finished");
     }
 
-    @Scheduled(fixedRate = 10000)
-    public void deadLockDetect() {
-        System.out.println("[DeadLockDetect] Starting to detect dead lock");
-        try {
-            executeEngine.detectDeadLock();
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-        System.out.println("[DeadLockDetect] Detect finished");
-    }
+//    @Scheduled(fixedRate = 10000)
+//    public void deadLockDetect() {
+//        System.out.println("[DeadLockDetect] Starting to detect dead lock");
+//        try {
+//            executeEngine.detectDeadLock();
+//        } catch (Exception e) {
+//            e.printStackTrace();
+//        }
+//        System.out.println("[DeadLockDetect] Detect finished");
+//    }
 }

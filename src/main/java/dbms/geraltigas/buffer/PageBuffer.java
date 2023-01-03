@@ -40,6 +40,17 @@ public class PageBuffer {
         }
     }
 
+    public void deleteTable(String tableName) {
+        for (int i = 0; i < this.pageArrayBuffer.length;i++) {
+            Page page = this.pageArrayBuffer[i];
+            if (page != null && page.tableName != null) {
+                if (page.blockId != -1 && page.type == DiskManager.AccessType.TABLE && page.tableName.equals(tableName)) {
+                    this.pageArrayBuffer[i] = new Page();
+                }
+            }
+        }
+    }
+
     public class Page implements Comparable<Page> {
         public String tableName = null;
         public DiskManager.AccessType type = null;
@@ -148,6 +159,7 @@ public class PageBuffer {
         randomAccessFile.seek(fromOffset);
         byte[] data = new byte[BLOCK_SIZE];
         randomAccessFile.read(data,0, (int) (toOffset - fromOffset));
+        randomAccessFile.close();
         return data;
     }
 
@@ -176,6 +188,7 @@ public class PageBuffer {
         RandomAccessFile randomAccessFile = new RandomAccessFile(file, "rw");
         randomAccessFile.seek(fromOffset);
         randomAccessFile.write(data);
+        randomAccessFile.close();
         return true;
     }
 

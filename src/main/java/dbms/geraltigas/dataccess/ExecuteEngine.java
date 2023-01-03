@@ -21,8 +21,6 @@ import java.util.concurrent.ExecutorService;
 @Component
 public class ExecuteEngine {
 
-    @Autowired
-    ExecutorService executorService;
 
     @Autowired
     NormalExecutor normalExecutor;
@@ -33,6 +31,9 @@ public class ExecuteEngine {
     private Map<Long, Integer> txnStep = new ConcurrentHashMap<>();
 
     private String dataPath = "E:/DBMSTEST";
+
+    @Autowired
+    ExecutorService executorService;
 
     public void setDataDir(String path) {
         this.dataPath = path;
@@ -59,6 +60,26 @@ public class ExecuteEngine {
         return transactions.containsKey(threadId);
     }
 
+    public void beginTxn(long threadId) {
+        TransactionExecutor executor = new TransactionExecutor(threadId);
+        executor.setExecuteEngine(this);
+        transactions.put(threadId,executor);
+        executorService.submit(executor);
+    }
+
+    public void commitTxn(long threadId) {
+        transactions.remove(threadId);
+    }
+
+    public synchronized void rollbackTxn(long threadId) throws BlockException, DataDirException, IOException {
+        TransactionExecutor executor = (TransactionExecutor) transactions.get(threadId);
+        if (executor == null) {
+            return;
+        }
+        executor.rollBack();
+        transactions.remove(threadId);
+    }
+
     public void addExecPlan(ExecPlan execPlan) {
         if (transactions.containsKey(execPlan.getThreadId())) {
             // add execplan to transaction to shedule
@@ -77,31 +98,12 @@ public class ExecuteEngine {
         this.results.put(hash, result);
     }
 
-    public void beginTxn(long threadId) {
-        TransactionExecutor executor = new TransactionExecutor(threadId);
-        executor.setExecuteEngine(this);
-        transactions.put(threadId,executor);
-        executorService.submit(executor);
-    }
-
-    public void commitTxn(long threadId) {
-        transactions.remove(threadId);
-    }
 
     @PostConstruct
     private void beginDataAccessWatcher() {
         normalExecutor.setExecuteEngine(this);
         executorService.submit(normalExecutor);
         System.out.println("[ExecuteEngine] NormalExecutor started");
-    }
-
-    public synchronized void rollbackTxn(long threadId) throws BlockException, DataDirException, IOException {
-        TransactionExecutor executor = (TransactionExecutor) transactions.get(threadId);
-        if (executor == null) {
-            return;
-        }
-        executor.rollBack();
-        transactions.remove(threadId);
     }
 
     public void detectDeadLock() throws BlockException, DataDirException, IOException {

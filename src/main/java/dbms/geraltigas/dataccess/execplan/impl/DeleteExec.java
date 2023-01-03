@@ -28,7 +28,8 @@ import java.util.Set;
 import java.util.TreeSet;
 
 public class DeleteExec implements ExecPlan {
-
+    String tableName;
+    Expression whereExpression;
     @Autowired
     TableBuffer tableBuffer;
 
@@ -38,8 +39,6 @@ public class DeleteExec implements ExecPlan {
     @Autowired
     LockManager lockManager;
 
-    String tableName;
-    Expression whereExpression;
     private long threadId;
     boolean isTxn;
     Executor transactionExecutor;
@@ -58,7 +57,7 @@ public class DeleteExec implements ExecPlan {
     }
 
     @Override
-    public String execute(String dataPath) throws IOException, DataTypeException, FieldNotFoundException, BlockException, DataDirException {
+    public String execute(String dataPath) throws IOException, FieldNotFoundException, BlockException, DataDirException, DataTypeException {
         List<String> res = new ArrayList<>();
 
         TableDefine tableDefine = tableBuffer.getTableDefine(tableName);
@@ -67,7 +66,6 @@ public class DeleteExec implements ExecPlan {
         TableHeader tableHeader = diskManager.getTableHeader(tableName);
         int tableLength = tableHeader.getTableLength();
         int deleteNum = 0;
-
 
         Pair<List<String>,List<String>> pair = tableBuffer.getIndexNameAndIndexColumnNameList(tableName);
         List<String> indexNameList = pair.getFirst();
@@ -97,13 +95,18 @@ public class DeleteExec implements ExecPlan {
                         if (record[0] == 1) {
                             // judge the record is valid
                             if (whereExpression != null) {
-                                if (whereExpression.evalNoAlias(record, tableDefine)) {
-                                    if (isTxn) transactionExecutor.addChangeLog(new RecordChangeLog(tableName, index+1, i, record.clone()));
-                                    record[0] = 0;
-                                    deleteNum++;
-                                    diskManager.setOneRecord(tableName,index+1,i,record);
-                                    deleteIndexData(indexColumnNameList,record,tableDefine,index+1,i);
+                                try {
+                                    if (whereExpression.evalNoAlias(record, tableDefine)) {
+                                        if (isTxn) transactionExecutor.addChangeLog(new RecordChangeLog(tableName, index+1, i, record.clone()));
+                                        record[0] = 0;
+                                        deleteNum++;
+                                        diskManager.setOneRecord(tableName,index+1,i,record);
+                                        deleteIndexData(indexColumnNameList,record,tableDefine,index+1,i);
+                                    }
+                                }catch (DataTypeException e) {
+                                    return e.getMessage();
                                 }
+
                             }else {
                                 if (isTxn) transactionExecutor.addChangeLog(new RecordChangeLog(tableName, index+1, i, record.clone()));
                                 record[0] = 0;
@@ -170,14 +173,18 @@ public class DeleteExec implements ExecPlan {
                     for (int i = 0; i < recordNum1; i++) {
                         byte[] record = diskManager.getOneRecord(tableName, pageId, i);
                         if (record[0] == 1) {
-                            if (whereExpression.evalNoAlias(record, tableDefine)) {
-                                if (isTxn) transactionExecutor.addChangeLog(new RecordChangeLog(tableName, pageId, i, record.clone()));
-
-                                record[0] = 0;
-                                deleteNum++;
-                                diskManager.setOneRecord(tableName,pageId,i,record);
-                                deleteIndexData(indexColumnNameList,record,tableDefine,pageId,i);
+                            try {
+                                if (whereExpression.evalNoAlias(record, tableDefine)) {
+                                    if (isTxn) transactionExecutor.addChangeLog(new RecordChangeLog(tableName, pageId, i, record.clone()));
+                                    record[0] = 0;
+                                    deleteNum++;
+                                    diskManager.setOneRecord(tableName,pageId,i,record);
+                                    deleteIndexData(indexColumnNameList,record,tableDefine,pageId,i);
+                                }
+                            }catch (DataTypeException e){
+                                return e.getMessage();
                             }
+
                         }
                     }
                 }
@@ -237,12 +244,24 @@ public class DeleteExec implements ExecPlan {
                     for (int i = 0; i < recordNum1; i++) {
                         byte[] record = diskManager.getOneRecord(tableName, pageId, i);
                         if (record[0] == 1) {
-                            if (whereExpression.evalNoAlias(record, tableDefine)) {
+                            if (whereExpression == null) {
                                 if (isTxn) transactionExecutor.addChangeLog(new RecordChangeLog(tableName, pageId, i, record.clone()));
                                 record[0] = 0;
                                 deleteNum++;
                                 diskManager.setOneRecord(tableName,pageId,i,record);
                                 deleteIndexData(indexColumnNameList,record,tableDefine,pageId,i);
+                            }else {
+                                try {
+                                    if (whereExpression.evalNoAlias(record, tableDefine)) {
+                                        if (isTxn) transactionExecutor.addChangeLog(new RecordChangeLog(tableName, pageId, i, record.clone()));
+                                        record[0] = 0;
+                                        deleteNum++;
+                                        diskManager.setOneRecord(tableName,pageId,i,record);
+                                        deleteIndexData(indexColumnNameList,record,tableDefine,pageId,i);
+                                    }
+                                }catch (DataTypeException e){
+                                    return e.getMessage();
+                                }
                             }
                         }
                     }
@@ -306,6 +325,9 @@ public class DeleteExec implements ExecPlan {
 
     private boolean isSimpleWhereExpression(Expression whereExpression,Set<String> allUsedColumnNameSet,Set<String> haveIndexColumnName) {
         if (whereExpression == null) {
+            return false;
+        }
+        if (haveIndexColumnName.size() == 0) {
             return false;
         }
         boolean isSimple = true;
@@ -375,6 +397,9 @@ public class DeleteExec implements ExecPlan {
         List<Expression> equelExpressionList = new ArrayList<>();
         addAllEquelExpression(whereExpression, equelExpressionList);
         for (Expression expression : equelExpressionList) {
+            if (expression.getRight().getOp() == expression.getRight().getOp()) {
+                continue;
+            }
             if (expression.getLeft().getOp() == Expression.Op.NULL) {
                 columnNameList.add(expression.getLeft().getName());
                 valueList.add(new Pair<>(expression.getRight().getOp(), expression.getRight().getValue()));
@@ -387,6 +412,9 @@ public class DeleteExec implements ExecPlan {
     }
 
     public void addAllEquelExpression(Expression expression,List<Expression> collect) {
+        if (expression == null) {
+            return;
+        }
         if (expression.getOp() == Expression.Op.EQUAL) {
             collect.add(expression);
         }else {
