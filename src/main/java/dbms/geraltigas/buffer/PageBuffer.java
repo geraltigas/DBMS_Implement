@@ -10,6 +10,7 @@ import java.io.*;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
+import java.util.concurrent.ConcurrentSkipListSet;
 
 @Component
 public class PageBuffer {
@@ -17,7 +18,7 @@ public class PageBuffer {
     private static final int BLOCK_COUNT = 4096;
 
     private Page[] pageArrayBuffer;
-    private LinkedList<Page> changedPageList;
+    private Set<Page> changedPageSet = new TreeSet<>();
     @Autowired
     ExecuteEngine executeEngine;
 
@@ -31,7 +32,7 @@ public class PageBuffer {
         for (Page page : this.pageArrayBuffer) {
             if (page != null && page.isWrited) {
                 try {
-                    writeBlockToDisk(page.tableName, page.type, page.appendPath ,page.blockId, page.data);
+                    setBlockToDisk(page.tableName, page.type, page.appendPath ,page.blockId, page.data);
                     setPage(page.tableName, page.type, page.appendPath, page.blockId, page, false);
                 } catch (IOException e) {
                     e.printStackTrace();
@@ -79,7 +80,9 @@ public class PageBuffer {
 
         @Override
         public int compareTo(Page o) {
-            return 0;
+            String str1 = this.tableName + this.type + this.appendPath + this.blockId;
+            String str2 = o.tableName + o.type + o.appendPath + o.blockId;
+            return str1.compareTo(str2);
         }
     }
 
@@ -111,7 +114,7 @@ public class PageBuffer {
         Page page = pageArrayBuffer[hashCode];
         if (page.blockId != blockId || !Objects.equals(page.tableName, tableName) || page.type != type || !Objects.equals(page.appendPath, appendPath)) {
             if (page.isWrited) {
-                writeBlockToDisk(page.tableName, page.type, page.appendPath , page.blockId, page.data);
+                setBlockToDisk(page.tableName, page.type, page.appendPath , page.blockId, page.data);
                 Page temp = new Page(tableName,type,appendPath,blockId, getBlockFromDisk(tableName, type, appendPath, blockId));
                 pageArrayBuffer[hashCode] = temp;
                 return temp;
@@ -125,8 +128,7 @@ public class PageBuffer {
     }
 
     synchronized private void setPage(String tableName, DiskManager.AccessType type, String appendPath, int blockId, Page page, boolean isWrited) throws IOException {
-        int hashCode = getHashCode(tableName, type,appendPath, blockId); // TODO: handle situation that the page in this position has change
-
+        int hashCode = getHashCode(tableName, type,appendPath, blockId);
         page.isWrited = isWrited;
         pageArrayBuffer[hashCode] = page;
     }
@@ -163,7 +165,7 @@ public class PageBuffer {
         return data;
     }
 
-    private boolean writeBlockToDisk(String tableName, DiskManager.AccessType type,String appendPath, int blockId, byte[] data) throws IOException, BlockException {
+    private boolean setBlockToDisk(String tableName, DiskManager.AccessType type, String appendPath, int blockId, byte[] data) throws IOException, BlockException {
         long fromOffset = blockId * BLOCK_SIZE;
         long toOffset = fromOffset + BLOCK_SIZE;
         Path path = null;

@@ -7,10 +7,12 @@ import dbms.geraltigas.exception.ExpressionException;
 import dbms.geraltigas.exception.HandleException;
 import net.sf.jsqlparser.statement.Statement;
 
+import java.io.IOException;
+
 public interface Handler {
 
 
-    int handle(Statement query) throws HandleException, DataTypeException, DropTypeException, ExpressionException;
+    int handle(Statement query) throws HandleException, DataTypeException, DropTypeException, ExpressionException, IOException;
 
     String getResault(int hash);
 

@@ -123,7 +123,7 @@ public class Expression {
 
 
 
-    private static void evalAliasExpression(Map<String, TableDefine.Type> typeMap, List<String> alias, List<Expression> expressions, Map<String, Object> map) throws DataTypeException {
+    public static void evalAliasExpression(Map<String, TableDefine.Type> typeMap, List<String> alias, List<Expression> expressions, Map<String, Object> map) throws DataTypeException {
         for (int i = 0; i < alias.size(); i++) {
             map.putIfAbsent(alias.get(i).trim(),expressions.get(i).eval(typeMap,map));
             Object o = map.get(alias.get(i).trim());

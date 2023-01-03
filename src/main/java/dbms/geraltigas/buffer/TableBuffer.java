@@ -33,26 +33,26 @@ public class TableBuffer { // TableBuffer is thread safe
         tableDefineMap.put(tableName, tableDefine);
     }
 
-    public synchronized TableDefine getTableDefine(String tableName) {
+    public synchronized TableDefine getTableDefine(String tableName) throws IOException {
         if (tableDefineMap.containsKey(tableName)) {
             return tableDefineMap.get(tableName);
         }else {
-            TableDefine tableDefine = getTableDefineFromFile(executeEngine.getDateDir(), tableName);
-            tableDefineMap.put(tableName, tableDefine);
-            return tableDefine;
+            try{
+                TableDefine tableDefine = getTableDefineFromFile(executeEngine.getDateDir(), tableName);
+                tableDefineMap.put(tableName, tableDefine);
+                return tableDefine;
+            }catch (IOException e) {
+                throw new IOException("Table " + tableName + " not found");
+            }
+
         }
     }
 
-    private TableDefine getTableDefineFromFile(String dataPath, String tableName) {
+    private TableDefine getTableDefineFromFile(String dataPath, String tableName) throws IOException {
         Path path = Path.of(dataPath).resolve("metadata").resolve(tableName + ".meta");
         File metadataFile = path.toFile();
-        try {
-            TableDefine tableDefine = objectMapper.readValue(metadataFile, TableDefine.class);
-            return tableDefine;
-        } catch (Exception e) {
-             e.printStackTrace();
-            return null;
-        }
+        TableDefine tableDefine = objectMapper.readValue(metadataFile, TableDefine.class);
+        return tableDefine;
     }
 
     public Pair<List<String>, List<String>> getIndexNameAndIndexColumnNameList(String tableName) {

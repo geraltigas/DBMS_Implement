@@ -10,9 +10,8 @@ import java.nio.file.Path;
 
 // TODO: deadlock check
 // TODO: empty hole remove
-// TODO: index test
 // TODO: transaction test
-// TODO: hashJoin test
+// TODO: pageBuffer remove page into list for recycle
 
 public class ClientTester {
     String name;

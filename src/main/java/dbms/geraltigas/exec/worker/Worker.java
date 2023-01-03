@@ -126,7 +126,7 @@ public class Worker implements Runnable {
     public Worker() {
     }
 
-    public String doWork(String input) throws JSQLParserException, HandleException, ExecutionException, InterruptedException, DataTypeException, DropTypeException, ExpressionException {
+    public String doWork(String input) throws JSQLParserException, HandleException, ExecutionException, InterruptedException, DataTypeException, DropTypeException, ExpressionException, IOException {
         return switch (state) {
             case IDLE -> idleProcess(input);
             case CONNECTED -> connectedProcess(input);
@@ -175,7 +175,7 @@ public class Worker implements Runnable {
         }
     }
 
-    public String authenticatedProcess(String input) throws HandleException, ExecutionException, InterruptedException, DataTypeException, DropTypeException, ExpressionException {
+    public String authenticatedProcess(String input) throws HandleException, ExecutionException, InterruptedException, DataTypeException, DropTypeException, ExpressionException, IOException {
 
         String[] statements = input.split(";");
 
@@ -201,6 +201,8 @@ public class Worker implements Runnable {
                 } catch (JSQLParserException e) {
                     System.out.println("Sql Syntax Error: " + e.getMessage());
                     return "Sql Syntax Error";
+                } catch (IOException e) {
+                    return e.getMessage();
                 }
             }
         }
@@ -215,7 +217,7 @@ public class Worker implements Runnable {
         return waitForResult(handler.handleShow(statement));
     }
 
-    private String routeExec(Statement statement) throws HandleException, ExecutionException, InterruptedException, DataTypeException, DropTypeException, ExpressionException {
+    private String routeExec(Statement statement) throws HandleException, ExecutionException, InterruptedException, DataTypeException, DropTypeException, ExpressionException, IOException {
         switch (statement.getClass().getSimpleName()){
             case "Select":
                 return selectExec((Select) statement);
@@ -236,62 +238,62 @@ public class Worker implements Runnable {
                 return "Unsupported Statement";
         }
     }
-    private String beginExec() throws HandleException, DataTypeException, DropTypeException, ExpressionException, ExecutionException, InterruptedException { //TODO: begin transaction
+    private String beginExec() throws HandleException, DataTypeException, DropTypeException, ExpressionException, ExecutionException, InterruptedException, IOException { //TODO: begin transaction
         workerPrint("Begin Transaction");
         handler = handlerFactory.getHandler(HandlerFactory.HandlerType.BEGIN);
         handler.setThreadId(threadId);
         return waitForResult(handler.handle(null));
     }
-    private String commitExec() throws HandleException, DataTypeException, DropTypeException, ExpressionException, ExecutionException, InterruptedException { //TODO: commit transaction
+    private String commitExec() throws HandleException, DataTypeException, DropTypeException, ExpressionException, ExecutionException, InterruptedException, IOException { //TODO: commit transaction
         workerPrint("Commit Transaction");
         handler = handlerFactory.getHandler(HandlerFactory.HandlerType.COMMIT);
         handler.setThreadId(threadId);
         return waitForResult(handler.handle(null));
     }
-    private String rollbackExec() throws HandleException, DataTypeException, DropTypeException, ExpressionException, ExecutionException, InterruptedException { //TODO: rollback transaction
+    private String rollbackExec() throws HandleException, DataTypeException, DropTypeException, ExpressionException, ExecutionException, InterruptedException, IOException { //TODO: rollback transaction
         workerPrint("Rollback Transaction");
         handler = handlerFactory.getHandler(HandlerFactory.HandlerType.ROLLBACK);
         handler.setThreadId(threadId);
         return waitForResult(handler.handle(null));
     }
 
-    private String createIndexExec(CreateIndex statement) throws HandleException, ExecutionException, InterruptedException, DataTypeException, DropTypeException, ExpressionException { //TODO: Create Index
+    private String createIndexExec(CreateIndex statement) throws HandleException, ExecutionException, InterruptedException, DataTypeException, DropTypeException, ExpressionException, IOException { //TODO: Create Index
         handler = handlerFactory.getHandler(HandlerFactory.HandlerType.CREATE_INDEX);
         handler.setThreadId(threadId);
         return waitForResult(handler.handle(statement));
     }
 
-    private String updateExec(Update statement) throws HandleException, ExecutionException, InterruptedException, DataTypeException, DropTypeException, ExpressionException { //TODO: Update
+    private String updateExec(Update statement) throws HandleException, ExecutionException, InterruptedException, DataTypeException, DropTypeException, ExpressionException, IOException { //TODO: Update
         handler = handlerFactory.getHandler(HandlerFactory.HandlerType.UPDATE);
         handler.setThreadId(threadId);
         return waitForResult(handler.handle(statement));
     }
 
-    private String insertExec(Insert statement) throws HandleException, ExecutionException, InterruptedException, DataTypeException, DropTypeException, ExpressionException { //TODO: Insert
+    private String insertExec(Insert statement) throws HandleException, ExecutionException, InterruptedException, DataTypeException, DropTypeException, ExpressionException, IOException { //TODO: Insert
         handler = handlerFactory.getHandler(HandlerFactory.HandlerType.INSERT);
         handler.setThreadId(threadId);
         return waitForResult(handler.handle(statement));
     }
 
-    private String dropExec(Drop statement) throws HandleException, ExecutionException, InterruptedException, DataTypeException, DropTypeException, ExpressionException { //TODO: Drop
+    private String dropExec(Drop statement) throws HandleException, ExecutionException, InterruptedException, DataTypeException, DropTypeException, ExpressionException, IOException { //TODO: Drop
         handler = handlerFactory.getHandler(HandlerFactory.HandlerType.DROP);
         handler.setThreadId(threadId);
         return waitForResult(handler.handle(statement));
     }
 
-    private String createTableExec(CreateTable statement) throws HandleException, ExecutionException, InterruptedException, DataTypeException, DropTypeException, ExpressionException { //TODO: Create Table
+    private String createTableExec(CreateTable statement) throws HandleException, ExecutionException, InterruptedException, DataTypeException, DropTypeException, ExpressionException, IOException { //TODO: Create Table
         handler = handlerFactory.getHandler(HandlerFactory.HandlerType.CREATE_TABLE);
         handler.setThreadId(threadId);
         return waitForResult(handler.handle(statement));
     }
 
-    private String deleteExec(Delete statement) throws HandleException, ExecutionException, InterruptedException, DataTypeException, DropTypeException, ExpressionException { //TODO: Delete
+    private String deleteExec(Delete statement) throws HandleException, ExecutionException, InterruptedException, DataTypeException, DropTypeException, ExpressionException, IOException { //TODO: Delete
         handler = handlerFactory.getHandler(HandlerFactory.HandlerType.DELETE);
         handler.setThreadId(threadId);
         return waitForResult(handler.handle(statement));
     }
 
-    private String selectExec(Select statement) throws HandleException, ExecutionException, InterruptedException, DataTypeException, DropTypeException, ExpressionException { //TODO: Select
+    private String selectExec(Select statement) throws HandleException, ExecutionException, InterruptedException, DataTypeException, DropTypeException, ExpressionException, IOException { //TODO: Select
         handler = handlerFactory.getHandler(HandlerFactory.HandlerType.SELECT);
         handler.setThreadId(threadId);
         return waitForResult(handler.handle(statement));

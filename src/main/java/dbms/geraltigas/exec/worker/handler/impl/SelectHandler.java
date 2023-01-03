@@ -22,6 +22,7 @@ import net.sf.jsqlparser.statement.Statement;
 import net.sf.jsqlparser.statement.select.*;
 import org.springframework.beans.factory.annotation.Autowired;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -44,7 +45,7 @@ public class SelectHandler implements Handler {
     }
 
     @Override
-    public int handle(Statement query) throws ExpressionException {
+    public int handle(Statement query) throws ExpressionException, IOException {
         List<Expression> expressions = new ArrayList<>();
         List<String> names = new ArrayList<>();
         Select select = (Select) query;

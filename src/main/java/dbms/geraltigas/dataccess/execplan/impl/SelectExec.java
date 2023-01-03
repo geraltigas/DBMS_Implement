@@ -14,13 +14,13 @@ import dbms.geraltigas.format.tables.PageHeader;
 import dbms.geraltigas.format.tables.TableDefine;
 import dbms.geraltigas.format.tables.TableHeader;
 import dbms.geraltigas.transaction.LockManager;
-import dbms.geraltigas.utils.DataDump;
-import dbms.geraltigas.utils.Pair;
-import dbms.geraltigas.utils.SetIterator;
+import dbms.geraltigas.utils.*;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import java.io.IOException;
 import java.util.*;
+
+import static dbms.geraltigas.expression.Expression.evalAliasExpression;
 
 public class SelectExec implements ExecPlan { // TODO:  change to lock and index
  // TODO: implement hash join
@@ -73,6 +73,8 @@ public class SelectExec implements ExecPlan { // TODO:  change to lock and index
 
             TableDefine tableDefine = tableBuffer.getTableDefine(tableName);
 
+            Printer.print("indexUseType: " + indexUseType,threadId);
+
             switch (indexUseType){
                 case NONE -> {
                     long pageHeaderId = LockManager.computeId(tableName, DiskManager.AccessType.TABLE,null,0);
@@ -122,28 +124,26 @@ public class SelectExec implements ExecPlan { // TODO:  change to lock and index
                         lockManager.lockRead(indexHeaderId, threadId);
                         IndexHeader indexHeader = diskManager.getIndexHeader(tableName, indexName);
                         int hashIndex = hash % indexHeader.getIndexHashArraySize();
+                        if (hashIndex < 0) hashIndex += indexHeader.getIndexHashArraySize();
                         long indexDataLockId = LockManager.computeId(tableName, DiskManager.AccessType.INDEX,indexName,hashIndex+1);
                         lockManager.lockRead(indexDataLockId, threadId);
                         IndexPageHeader indexPageHeader = diskManager.getIndexPageHeader(tableName, indexName, hashIndex+1);
                         int indexDataNum = indexPageHeader.getIndexNum();
-                        List<TableDefine.Type> typeList = new ArrayList<>();
                         List<TableDefine.Type> tableTypeList = tableDefine.getColTypes();
                         List<String> colNameList = tableDefine.getColNames();
                         int colIndex = colNameList.indexOf(columnName);
-                        typeList.add(tableTypeList.get(colIndex));
-                        typeList.add(TableDefine.Type.INTEGER); // page index
-                        typeList.add(TableDefine.Type.INTEGER); // record index
-                        List<List<String>> attrValues = new ArrayList<>();
+                        IndexUtils indexUtils = new IndexUtils(tableTypeList.get(colIndex),tableDefine.getColAttrs().get(colIndex));
 
                         for (int i = 0; i < indexDataNum; i++) {
-                            byte[] indexData = diskManager.getOneIndexData(tableName, hashIndex+1,indexName, i,InsertExec.CalculateLength(typeList,attrValues));
+                            byte[] indexData = diskManager.getOneIndexData(tableName, hashIndex+1,indexName, i,indexUtils.getIndexDataLength());
                             if (indexData[0] == 1) {
-                                List<Object> valueList1 = DataDump.load(typeList, indexData,0);
+                                List<Object> valueList1 = DataDump.load(indexUtils.getTypeList(), indexData,0);
                                 Integer pageIndex = (Integer) valueList1.get(1);
                                 pageIndexSet.add(pageIndex);
                             }
                         }
                         pageIndexSetList.add(pageIndexSet);
+                        Printer.print("using index in indexName: " + indexName + " ,indexPageIndex: " + hashIndex+1 + " ,data: " + value + " ,chosenPageNum: " + pageIndexSet.size(),threadId);
                     }
                     Set<Integer> pageIndexSet = new TreeSet<>();
                     for (Set<Integer> set : pageIndexSetList) {
@@ -190,28 +190,26 @@ public class SelectExec implements ExecPlan { // TODO:  change to lock and index
                         lockManager.lockRead(indexHeaderId, threadId);
                         IndexHeader indexHeader = diskManager.getIndexHeader(tableName, indexName);
                         int hashIndex = hash % indexHeader.getIndexHashArraySize();
+                        if (hashIndex < 0) hashIndex += indexHeader.getIndexHashArraySize();
                         long indexDataLockId = LockManager.computeId(tableName, DiskManager.AccessType.INDEX,indexName,hashIndex+1);
-                        lockManager.lockWrite(indexDataLockId, threadId);
+                        lockManager.lockRead(indexDataLockId, threadId);
                         IndexPageHeader indexPageHeader = diskManager.getIndexPageHeader(tableName, indexName, hashIndex+1);
                         int indexDataNum = indexPageHeader.getIndexNum();
-                        List<TableDefine.Type> typeList = new ArrayList<>();
                         List<TableDefine.Type> tableTypeList = tableDefine.getColTypes();
                         List<String> colNameList = tableDefine.getColNames();
                         int colIndex = colNameList.indexOf(columnName);
-                        typeList.add(tableTypeList.get(colIndex));
-                        typeList.add(TableDefine.Type.INTEGER); // page index
-                        typeList.add(TableDefine.Type.INTEGER); // record index
-                        List<List<String>> attrValues = new ArrayList<>();
+                        IndexUtils indexUtils = new IndexUtils(tableTypeList.get(colIndex),tableDefine.getColAttrs().get(colIndex));
 
                         for (int i = 0; i < indexDataNum; i++) {
-                            byte[] indexData = diskManager.getOneIndexData(tableName, hashIndex+1,indexName, i,InsertExec.CalculateLength(typeList,attrValues));
+                            byte[] indexData = diskManager.getOneIndexData(tableName, hashIndex+1,indexName, i,indexUtils.getIndexDataLength());
                             if (indexData[0] == 1) {
-                                List<Object> valueList1 = DataDump.load(typeList, indexData,0);
+                                List<Object> valueList1 = DataDump.load(indexUtils.getTypeList(), indexData,0);
                                 Integer pageIndex = (Integer) valueList1.get(1);
                                 pageIndexSet.add(pageIndex);
                             }
                         }
                         pageIndexSetList.add(pageIndexSet);
+                        Printer.print("using index in indexName: " + indexName + " ,indexPageIndex: " + hashIndex+1 + " ,data: " + value + " ,chosenPageNum: " + pageIndexSet.size(),threadId);
                     }
                     Set<Integer> pageIndexSet = new TreeSet<>(pageIndexSetList.get(0));
                     for (Set<Integer> set : pageIndexSetList) {
@@ -240,6 +238,110 @@ public class SelectExec implements ExecPlan { // TODO:  change to lock and index
                     }
                 }
             }
+        }else if (useHashJoin()){
+            Printer.print("using hash join",threadId);
+            List<Set<byte[]>> recordSetList = new ArrayList<>();
+            for (String tableName : tableNames) {
+                Set<byte[]> recordSet = new TreeSet<>(Comparator.comparing(Arrays::toString));
+                long tableHeaderId = LockManager.computeId(tableName, DiskManager.AccessType.TABLE,null,0);
+                lockManager.lockRead(tableHeaderId, threadId);
+                TableHeader tableHeader = diskManager.getTableHeader(tableName);
+                int pageNum = tableHeader.getTableLength();
+                for (int i = 0;i < pageNum;i++) {
+                    long pageId = LockManager.computeId(tableName, DiskManager.AccessType.TABLE,null,i+1);
+                    lockManager.lockRead(pageId,threadId);
+                    PageHeader pageHeader = diskManager.getPageHeader(tableName, i+1);
+                    int recordNumT = pageHeader.getRecordNum();
+                    for (int j = 0;j < recordNumT;j++) {
+                        byte[] record = diskManager.getOneRecord(tableName, i+1, j);
+                        if (record[0] == 1) {
+                            recordSet.add(record);
+                        }
+                    }
+                }
+                recordSetList.add(recordSet);
+            }
+
+            Map<Integer,List<List<Object>>> cache = new HashMap<>();
+
+            String leftColumnName = whereExpression.getLeft().getName();
+            String rightColumnName = whereExpression.getRight().getName();
+
+            TableDefine firstTableDefine = tableBuffer.getTableDefine(tableNames.get(0));
+            TableDefine secondTableDefine = tableBuffer.getTableDefine(tableNames.get(1));
+
+            TableDefine leftTableDefine = null;
+            TableDefine rightTableDefine = null;
+            Set<byte[]> leftRecordSet = null;
+            Set<byte[]> rightRecordSet = null;
+            int leftIndex = -1;
+            int rightIndex = -1;
+
+
+            if (firstTableDefine.getColNames().contains(leftColumnName)) {
+                leftTableDefine = firstTableDefine;
+                rightTableDefine = secondTableDefine;
+                leftRecordSet = recordSetList.get(0);
+                rightRecordSet = recordSetList.get(1);
+            }else {
+                leftTableDefine = secondTableDefine;
+                rightTableDefine = firstTableDefine;
+                leftRecordSet = recordSetList.get(1);
+                rightRecordSet = recordSetList.get(0);
+            }
+
+            List<String> nameList = new ArrayList<>();
+            nameList.addAll(leftTableDefine.getColNames());
+            nameList.addAll(rightTableDefine.getColNames());
+            List<TableDefine.Type> types = new ArrayList<>();
+            types.addAll(leftTableDefine.getColTypes());
+            types.addAll(rightTableDefine.getColTypes());
+
+            leftIndex = leftTableDefine.getColNames().indexOf(leftColumnName);
+            rightIndex = rightTableDefine.getColNames().indexOf(rightColumnName);
+
+            for (byte[] record : leftRecordSet) {
+                List<Object> valueList = DataDump.load(leftTableDefine.getColTypes(), record,0);
+                Object value = valueList.get(leftIndex);
+                int hash = value.hashCode();
+                if (cache.containsKey(hash)) {
+                    cache.get(hash).add(valueList);
+                }else {
+                    List<List<Object>> valueListList = new ArrayList<>();
+                    valueListList.add(valueList);
+                    cache.put(hash,valueListList);
+                }
+            }
+
+            for (byte[] record : rightRecordSet) {
+                List<Object> valueList = DataDump.load(rightTableDefine.getColTypes(), record,0);
+                Object value = valueList.get(rightIndex);
+                int hash = value.hashCode();
+                if (cache.containsKey(hash)) {
+                    List<List<Object>> valueListList = cache.get(hash);
+                    for (List<Object> valueList1 : valueListList) {
+
+                        List<Object> values = new ArrayList<>();
+                        values.addAll(valueList1);
+                        values.addAll(valueList);
+
+                        Map<String,Object> map = new HashMap<>();
+                        Map<String, TableDefine.Type> typeMap = new HashMap<>();
+                        for (int i = 0; i < nameList.size(); i++) {
+                            map.put(nameList.get(i).trim(),values.get(i));
+                            typeMap.put(nameList.get(i).trim(),types.get(i));
+                        }
+
+                        evalAliasExpression(typeMap,names,expressions,map);
+                        String[] valueS = names.stream().map(item -> map.get(item.trim()).toString()).toArray(String[]::new);
+                        for (int i = 0; i < valueS.length; i++) {
+                            valueS[i] = String.format("%-10s",valueS[i]);
+                        }
+                        res.add("|"+String.join("|",valueS)+"|");
+                    }
+                }
+            }
+
         }else
         {
             List<Set<byte[]>> recordSetList = new ArrayList<>();
@@ -304,6 +406,49 @@ public class SelectExec implements ExecPlan { // TODO:  change to lock and index
         return String.join("\n", res);
     }
 
+    private boolean useHashJoin() throws IOException {
+        boolean isOk = true;
+        if (tableNames.size() != 2) {
+            isOk = false;
+        }
+        if (whereExpression.getOp() != Expression.Op.EQUAL) {
+            isOk = false;
+        }
+        if (whereExpression.getLeft().getOp() != Expression.Op.NULL || whereExpression.getRight().getOp() != Expression.Op.NULL) {
+            isOk = false;
+        }
+        String leftColumnName = whereExpression.getLeft().getName();
+        String rightColumnName = whereExpression.getRight().getName();
+        TableDefine first = tableBuffer.getTableDefine(tableNames.get(0));
+        TableDefine second = tableBuffer.getTableDefine(tableNames.get(1));
+        TableDefine leftTableDefine = null;
+        TableDefine rightTableDefine = null;
+        String leftTableName = null;
+        String rightTableName = null;
+
+        if (first.getColNames().contains(leftColumnName)) {
+            leftTableDefine = first;
+            leftTableName = tableNames.get(0);
+        }else {
+            leftTableDefine = second;
+            leftTableName = tableNames.get(1);
+        }
+        if (first.getColNames().contains(rightColumnName)) {
+            rightTableDefine = first;
+            rightTableName = tableNames.get(0);
+        }else {
+            rightTableDefine = second;
+            rightTableName = tableNames.get(1);
+        }
+        if (
+                (leftTableDefine.getColNames().contains(leftTableName) && leftTableDefine.getColNames().contains(rightTableName)) ||
+                (rightTableDefine.getColNames().contains(leftTableName) && rightTableDefine.getColNames().contains(rightTableName))
+        ) {
+            isOk = false;
+        }
+        return isOk;
+    }
+
     private boolean isSimpleWhereExpression(Expression whereExpression,Set<String> allUsedColumnNameSet,Set<String> haveIndexColumnName) {
         if (whereExpression == null) {
             return false;
@@ -341,7 +486,6 @@ public class SelectExec implements ExecPlan { // TODO:  change to lock and index
         return isSimple;
     }
 
-
     private Pair<Boolean, Expression.Op> isSameOp(Expression whereExpression) {
         if (whereExpression == null) {
             return new Pair<>(true, null);
@@ -353,19 +497,25 @@ public class SelectExec implements ExecPlan { // TODO:  change to lock and index
         Pair<Boolean,Expression.Op> right = isSameOp(whereExpression.getRight());
         if (right.getFirst() && left.getFirst()) {
             if (right.getSecond() == left.getSecond()) {
-                Expression.Op op = right.getSecond();
-                boolean isSame = right.getSecond() == whereExpression.getOp();
-                if (right.getSecond() == Expression.Op.EQUAL && whereExpression.getOp() != Expression.Op.EQUAL) {
-                    isSame = true;
-                    op = whereExpression.getOp();
+                if (right.getSecond() == Expression.Op.EQUAL) {
+                    return new Pair<>(true,whereExpression.getOp());
+                }else {
+                    if (whereExpression.getOp() == right.getSecond()) {
+                        return new Pair<>(true,whereExpression.getOp());
+                    }else {
+                        return new Pair<>(false,null);
+                    }
                 }
-                return new Pair<>(isSame, op);
             }else {
                 if ((right.getSecond() == Expression.Op.AND && left.getSecond() == Expression.Op.OR) || (right.getSecond() == Expression.Op.OR && left.getSecond() == Expression.Op.AND)) {
                     return new Pair<>(false, null);
                 }else {
                     Expression.Op op = right.getSecond() != Expression.Op.EQUAL ? right.getSecond() : left.getSecond();
-                    return new Pair<>(true, op);
+                    if (op == whereExpression.getOp()) {
+                        return new Pair<>(true, op);
+                    }else {
+                        return new Pair<>(false, null);
+                    }
                 }
             }
         }else {
@@ -375,15 +525,12 @@ public class SelectExec implements ExecPlan { // TODO:  change to lock and index
 
 
     private Pair<List<String>, List<Pair<Expression.Op,Object>>> getColumnNameAndValueList(Expression whereExpression) {
-        if (whereExpression == null) {
-            return new Pair<>(new ArrayList<>(), new ArrayList<>());
-        }
         List<String> columnNameList = new ArrayList<>();
         List<Pair<Expression.Op,Object>> valueList = new ArrayList<>();
         List<Expression> equelExpressionList = new ArrayList<>();
         addAllEquelExpression(whereExpression, equelExpressionList);
         for (Expression expression : equelExpressionList) {
-            if (expression.getRight().getOp() == expression.getRight().getOp()) {
+            if (expression.getRight().getOp() == expression.getLeft().getOp()) {
                 continue;
             }
             if (expression.getLeft().getOp() == Expression.Op.NULL) {
@@ -398,6 +545,9 @@ public class SelectExec implements ExecPlan { // TODO:  change to lock and index
     }
 
     public void addAllEquelExpression(Expression expression,List<Expression> collect) {
+        if (expression == null) {
+            return;
+        }
         if (expression.getOp() == Expression.Op.EQUAL) {
             collect.add(expression);
         }else {

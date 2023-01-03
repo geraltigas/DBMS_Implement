@@ -18,16 +18,18 @@ public class DropTest {
         // normal drop
         res = clientTester.send("CREATE TABLE test (id INT, name VARCHAR(20),float FLOAT)");
 
-        assertEquals("\n" +
-                "Create table file;\n" +
-                "Write table metadata;\n" +
-                "Write table header",res);
+        assertEquals("""
+
+                Create table file;
+                Write table metadata;
+                Write table header""",res);
 
         res = clientTester.send("DROP TABLE test");
-        assertEquals("\n" +
-                "Table file test dropped;\n" +
-                "Meta test deleted;\n" +
-                "Table test dropped",res);
+        assertEquals("""
+
+                Table file test dropped;
+                Meta test deleted;
+                Table test dropped""",res);
         // drop done exist table
         res = clientTester.send("DROP TABLE test");
         assertEquals("\n" +

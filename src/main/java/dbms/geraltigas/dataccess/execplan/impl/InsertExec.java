@@ -9,14 +9,17 @@ import dbms.geraltigas.exception.BlockException;
 import dbms.geraltigas.exception.DataDirException;
 import dbms.geraltigas.exception.DataTypeException;
 import dbms.geraltigas.exception.FieldNotFoundException;
+import dbms.geraltigas.format.indexs.IndexHeader;
+import dbms.geraltigas.format.indexs.IndexPageHeader;
 import dbms.geraltigas.format.tables.PageHeader;
 import dbms.geraltigas.format.tables.TableDefine;
 import dbms.geraltigas.format.tables.TableHeader;
 import dbms.geraltigas.transaction.LockManager;
-import dbms.geraltigas.transaction.changelog.impl.RecordChangeLog;
-import dbms.geraltigas.transaction.changelog.impl.TableHeaderChangeLog;
-import dbms.geraltigas.transaction.changelog.impl.TablePageHeaderChangeLog;
+import dbms.geraltigas.transaction.changelog.impl.*;
 import dbms.geraltigas.utils.DataDump;
+import dbms.geraltigas.utils.IndexUtils;
+import dbms.geraltigas.utils.Pair;
+import dbms.geraltigas.utils.Printer;
 import net.sf.jsqlparser.expression.Expression;
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -118,7 +121,7 @@ public class InsertExec implements ExecPlan {
 
         return insertRecords(records,tableDefine.getColTypes(),tableDefine.getColAttrs());
     }
-// TODO: insert with index
+
     private String insertRecords(List<List<Object>> records, List<TableDefine.Type> colTypes, List<List<String>> colAttrs) throws BlockException, IOException, DataDirException, DataTypeException { // TODO: need massive test
         if (records.size() != 1) {
             return "Not support multi insert";
@@ -168,6 +171,7 @@ public class InsertExec implements ExecPlan {
                     System.arraycopy(dataT,j * per_size,tempData,0,per_size);
                     if (isTxn) transactionExecutor.addChangeLog(new RecordChangeLog(tableName,i+1,j,new byte[per_size]));
                     diskManager.setOneRecord(tableName,i+1,j,tempData);
+                    insertWithIndex(records.get(0),i+1,j);
                 }
                 diskManager.setPageHeader(tableName,i+1,pageHeader);
             }
@@ -197,6 +201,7 @@ public class InsertExec implements ExecPlan {
                 if (isTxn) transactionExecutor.addChangeLog(new RecordChangeLog(tableName,pageNum,oldRecordNum+i,new byte[per_size]));
                 System.arraycopy(dataT,i * per_size,tempData,0,per_size);
                 diskManager.setOneRecord(tableName,pageNum,oldRecordNum+i,tempData);
+                insertWithIndex(records.get(0),pageNum,oldRecordNum+i);
             }
             if (records.size() > recordNum) {
                 recordNum = records.size() - recordNum;
@@ -228,6 +233,7 @@ public class InsertExec implements ExecPlan {
                         if (isTxn) transactionExecutor.addChangeLog(new RecordChangeLog(tableName,pageNum+i+1,j,new byte[per_size]));
                         System.arraycopy(dataTT,j * per_size,tempDataT,0,per_size);
                         diskManager.setOneRecord(tableName,pageNum+i+1,j,tempDataT);
+                        insertWithIndex(records.get(0),pageNum+i+1,j);
                     }
                 }
                 TableHeader oldTableHeader = new TableHeader(tableHeader);
@@ -242,6 +248,39 @@ public class InsertExec implements ExecPlan {
         }
 
         return "Table " + tableName + " insert " + records.size() + " records";
+    }
+
+    private void insertWithIndex(List<Object> record, int pageIdx, int recordIdx) throws IOException, DataTypeException, BlockException, DataDirException {
+        Pair<List<String>,List<String>> pair = tableBuffer.getIndexNameAndIndexColumnNameList(tableName);
+        TableDefine tableDefine = tableBuffer.getTableDefine(tableName);
+        List<String> indexNameList = pair.getFirst();
+        List<String> indexColumnNameList = pair.getSecond();
+        for (int i = 0; i < indexNameList.size(); i++) {
+            List<String> columnList = tableDefine.getColNames();
+            int columnIndex = columnList.indexOf(indexColumnNameList.get(i));
+            List<TableDefine.Type> typeList = tableDefine.getColTypes();
+            List<List<String>> attrList = tableDefine.getColAttrs();
+            IndexUtils indexUtils = new IndexUtils(typeList.get(columnIndex),attrList.get(columnIndex));
+            indexUtils.generateIndexDataBytes(record.get(columnIndex),pageIdx,recordIdx);
+            int hash = record.get(columnIndex).toString().hashCode();
+            String indexName = indexNameList.get(i);
+            long indexHeaderPageId = LockManager.computeId(tableName, DiskManager.AccessType.INDEX,indexName,0);
+            lockManager.lockRead(indexHeaderPageId,threadId);
+            IndexHeader indexHeader = diskManager.getIndexHeader(tableName,indexName);
+            hash %= indexHeader.getIndexHashArraySize();
+            if (hash < 0) hash += indexHeader.getIndexHashArraySize();
+            long indexPageId = LockManager.computeId(tableName, DiskManager.AccessType.INDEX,indexName,hash+1);
+            lockManager.lockWrite(indexPageId,threadId);
+            IndexPageHeader indexPageHeader = diskManager.getIndexPageHeader(tableName,indexName,hash+1);
+            IndexPageHeader oldIndexPageHeader = new IndexPageHeader(indexPageHeader);
+            int indexNum = indexPageHeader.getIndexNum();
+            diskManager.setOneIndexData(tableName,hash+1,indexName,indexNum,indexUtils.getIndexDataLength(),indexUtils.generateIndexDataBytes());
+            if (isTxn) transactionExecutor.addChangeLog(new IndexChangeLog(tableName,hash+1,indexName,indexNum,indexUtils.getIndexDataLength(),indexUtils.generateIndexDataBytes()));
+            indexPageHeader.setIndexNum(indexPageHeader.getIndexNum()+1);
+            diskManager.setIndexPageHeader(tableName,indexName,hash+1,indexPageHeader);
+            if (isTxn) transactionExecutor.addChangeLog(new IndexPageHeaderChangeLog(tableName,indexName,hash+1,oldIndexPageHeader));
+            Printer.print("insert index data in indexName: " + indexName + ", \nindex Page idx: " + (hash+1) + ", \ndata: " + record.get(columnIndex)+ ", \ndata page idx: " + pageIdx + ", \ndata record idx: " + recordIdx ,threadId);
+        }
     }
 
     public static byte[] GetOrderArray(List<String> definedColNames, String[] colNames) {

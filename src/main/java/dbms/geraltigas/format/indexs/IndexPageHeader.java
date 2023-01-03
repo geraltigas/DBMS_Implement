@@ -28,6 +28,11 @@ public class IndexPageHeader {
         nextPage = DataDump.bytesToInt(header, 4);
     }
 
+    public IndexPageHeader(IndexPageHeader indexPageHeader) {
+        this.indexNum = indexPageHeader.indexNum;
+        this.nextPage = indexPageHeader.nextPage;
+    }
+
     public byte[] ToBytes() {
         byte[] data;
         data = DataDump.dump(List.of(TableDefine.Type.INTEGER,TableDefine.Type.INTEGER), List.of(indexNum,nextPage));

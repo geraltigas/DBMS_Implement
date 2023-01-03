@@ -15,7 +15,7 @@ public class CreateTableTest {
         AtomicBoolean thread0Ok = new AtomicBoolean(false);
         Thread thread0 = new Thread(() -> {
             try {
-                String res = "";
+                String res;
                 ClientTester.begin();
                 ClientTester clientTester = new ClientTester("root");
                 clientTester.clearAllData();
@@ -29,25 +29,29 @@ public class CreateTableTest {
                 assertEquals("\nNo column definitions",res);
                 // single column, one type
                 res = clientTester.send("CREATE TABLE test2 (id INT)");
-                assertEquals("\n" +
-                        "Create table file;\n" +
-                        "Write table metadata;\n" +
-                        "Write table header",res);
+                assertEquals("""
+
+                        Create table file;
+                        Write table metadata;
+                        Write table header""",res);
                 res = clientTester.send("CREATE TABLE test3 (name VARCHAR(20))");
-                assertEquals("\n" +
-                        "Create table file;\n" +
-                        "Write table metadata;\n" +
-                        "Write table header",res);
+                assertEquals("""
+
+                        Create table file;
+                        Write table metadata;
+                        Write table header""",res);
                 res = clientTester.send("CREATE TABLE test4 (id FLOAT)");
-                assertEquals("\n" +
-                        "Create table file;\n" +
-                        "Write table metadata;\n" +
-                        "Write table header",res);
+                assertEquals("""
+
+                        Create table file;
+                        Write table metadata;
+                        Write table header""",res);
                 // same table name
                 res = clientTester.send("CREATE TABLE test2 (id int, name varchar(20))");
-                assertEquals("\n" +
-                        "Table file already exists;\n" +
-                        "Create table failed",res);
+                assertEquals("""
+
+                        Table file already exists;
+                        Create table failed""",res);
                 // multiple columns, one type same column name
                 res = clientTester.send("CREATE TABLE test5 (id INT, id INT)");
                 assertEquals("\n" +
@@ -57,41 +61,46 @@ public class CreateTableTest {
                         "Duplicate column name",res);
                 // multiple columns, one type different column name
                 res = clientTester.send("CREATE TABLE test7 (id INT, id2 int)");
-                assertEquals("\n" +
-                        "Create table file;\n" +
-                        "Write table metadata;\n" +
-                        "Write table header",res);
+                assertEquals("""
+
+                        Create table file;
+                        Write table metadata;
+                        Write table header""",res);
                 res = clientTester.send("CREATE TABLE test8 (id INT, id2 int)");
-                assertEquals("\n" +
-                        "Create table file;\n" +
-                        "Write table metadata;\n" +
-                        "Write table header",res);
+                assertEquals("""
+
+                        Create table file;
+                        Write table metadata;
+                        Write table header""",res);
                 // multiple columns, multiple type
                 res = clientTester.send("CREATE TABLE test9 (id INT, name VARCHAR(20))");
-                assertEquals("\n" +
-                        "Create table file;\n" +
-                        "Write table metadata;\n" +
-                        "Write table header",res);
+                assertEquals("""
+
+                        Create table file;
+                        Write table metadata;
+                        Write table header""",res);
                 res = clientTester.send("CREATE TABLE test10 (id INT, name VARCHAR(20), age INT)");
-                assertEquals("\n" +
-                        "Create table file;\n" +
-                        "Write table metadata;\n" +
-                        "Write table header",res);
+                assertEquals("""
+
+                        Create table file;
+                        Write table metadata;
+                        Write table header""",res);
                 res = clientTester.send("CREATE TABLE test11 (id INT, name VARCHAR(20), age INT, float FLOAT)");
-                assertEquals("\n" +
-                        "Create table file;\n" +
-                        "Write table metadata;\n" +
-                        "Write table header",res);
+                assertEquals("""
+
+                        Create table file;
+                        Write table metadata;
+                        Write table header""",res);
                 // not support type
                 res = clientTester.send("CREATE TABLE test12 (id INT, name VARCHAR(20), age INT, float FLOAT, date DATE)");
                 assertEquals("\n" +
                         "DataType not support",res);
                 res = clientTester.send("CREATE TABLE test13 (id INT, name VARCHAR(20), age INT, float FLOAT)");
-                assertEquals("\n" +
-                                "Create table file;\n" +
-                                "Write table metadata;\n" +
-                                "Write table header",res);
-                assertEquals(1,2);
+                assertEquals("""
+
+                        Create table file;
+                        Write table metadata;
+                        Write table header""",res);
                 clientTester.close();
             } catch (Exception e) {
                 e.printStackTrace();

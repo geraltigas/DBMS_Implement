@@ -18,7 +18,9 @@ import dbms.geraltigas.transaction.LockManager;
 import dbms.geraltigas.transaction.changelog.impl.IndexChangeLog;
 import dbms.geraltigas.transaction.changelog.impl.RecordChangeLog;
 import dbms.geraltigas.utils.DataDump;
+import dbms.geraltigas.utils.IndexUtils;
 import dbms.geraltigas.utils.Pair;
+import dbms.geraltigas.utils.Printer;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import java.io.IOException;
@@ -78,10 +80,34 @@ public class DeleteExec implements ExecPlan {
         List<Pair<Expression.Op,Object>> valueList = columnNameAndValueList.getSecond();
         Set<String> whereColumnNameSet = new TreeSet<>(whereColumnNameList);
 
+        for (String columnName : whereColumnNameList) {
+            int index = tableDefine.getColNames().indexOf(columnName);
+            TableDefine.Type type = tableDefine.getColTypes().get(index);
+            switch (type) {
+                case INTEGER -> {
+                    if (!(valueList.get(index).getSecond() instanceof Integer)) {
+                        return "Column " + columnName + " type dont match";
+                    }
+                }
+                case FLOAT -> {
+                    if(!(valueList.get(index).getSecond() instanceof Float)) {
+                        return "Column " + columnName + " type dont match";
+                    }
+                }
+                case VARCHAR -> {
+                    if(!(valueList.get(index).getSecond() instanceof String)) {
+                        return "Column " + columnName + " type dont match";
+                    }
+                }
+            }
+        }
+
         // set and operation
         Set<String> haveIndexColumnName = new TreeSet<>(indexColumNameSet);
         haveIndexColumnName.retainAll(whereColumnNameSet);
         isSimpleWhereExpression(whereExpression,whereColumnNameSet,haveIndexColumnName);
+
+        Printer.print("indexUseType: " + indexUseType,threadId);
 
         switch (indexUseType){
             case NONE -> {
@@ -101,7 +127,7 @@ public class DeleteExec implements ExecPlan {
                                         record[0] = 0;
                                         deleteNum++;
                                         diskManager.setOneRecord(tableName,index+1,i,record);
-                                        deleteIndexData(indexColumnNameList,record,tableDefine,index+1,i);
+                                        deleteIndexData(indexNameList,indexColumnNameList,record,tableDefine,index+1,i);
                                     }
                                 }catch (DataTypeException e) {
                                     return e.getMessage();
@@ -112,7 +138,7 @@ public class DeleteExec implements ExecPlan {
                                 record[0] = 0;
                                 deleteNum++;
                                 diskManager.setOneRecord(tableName,index+1,i,record);
-                                deleteIndexData(indexColumnNameList,record,tableDefine,index+1,i);
+                                deleteIndexData(indexNameList,indexColumnNameList,record,tableDefine,index+1,i);
                             }
                         }
                     }
@@ -138,28 +164,27 @@ public class DeleteExec implements ExecPlan {
                     lockManager.lockRead(indexHeaderId, threadId);
                     IndexHeader indexHeader = diskManager.getIndexHeader(tableName, indexName);
                     int hashIndex = hash % indexHeader.getIndexHashArraySize();
+                    if (hashIndex < 0) hashIndex += indexHeader.getIndexHashArraySize();
                     long indexDataLockId = LockManager.computeId(tableName, DiskManager.AccessType.INDEX,indexName,hashIndex+1);
                     lockManager.lockRead(indexDataLockId, threadId);
                     IndexPageHeader indexPageHeader = diskManager.getIndexPageHeader(tableName, indexName, hashIndex+1);
                     int indexDataNum = indexPageHeader.getIndexNum();
-                    List<TableDefine.Type> typeList = new ArrayList<>();
                     List<TableDefine.Type> tableTypeList = tableDefine.getColTypes();
                     List<String> colNameList = tableDefine.getColNames();
                     int colIndex = colNameList.indexOf(columnName);
-                    typeList.add(tableTypeList.get(colIndex));
-                    typeList.add(TableDefine.Type.INTEGER); // page index
-                    typeList.add(TableDefine.Type.INTEGER); // record index
-                    List<List<String>> attrValues = new ArrayList<>();
+                    IndexUtils indexUtils = new IndexUtils(tableTypeList.get(colIndex),tableDefine.getColAttrs().get(colIndex));
 
                     for (int i = 0; i < indexDataNum; i++) {
-                        byte[] indexData = diskManager.getOneIndexData(tableName, hashIndex+1,indexName, i,InsertExec.CalculateLength(typeList,attrValues));
+                        byte[] indexData = diskManager.getOneIndexData(tableName, hashIndex+1,indexName, i,indexUtils.getIndexDataLength());
+
                         if (indexData[0] == 1) {
-                            List<Object> valueList1 = DataDump.load(typeList, indexData,0);
+                            List<Object> valueList1 = DataDump.load(indexUtils.getTypeList(), indexData,0);
                             Integer pageIndex = (Integer) valueList1.get(1);
                             pageIndexSet.add(pageIndex);
                         }
                     }
                     pageIndexSetList.add(pageIndexSet);
+                    Printer.print("using index in indexName: " + indexName + " ,indexPageIndex: " + hashIndex+1 + " ,data: " + value + " ,chosenPageNum: " + pageIndexSet.size(),threadId);
                 }
                 Set<Integer> pageIndexSet = new TreeSet<>();
                 for (Set<Integer> set : pageIndexSetList) {
@@ -179,7 +204,7 @@ public class DeleteExec implements ExecPlan {
                                     record[0] = 0;
                                     deleteNum++;
                                     diskManager.setOneRecord(tableName,pageId,i,record);
-                                    deleteIndexData(indexColumnNameList,record,tableDefine,pageId,i);
+                                    deleteIndexData(indexNameList,indexColumnNameList,record,tableDefine,pageId,i);
                                 }
                             }catch (DataTypeException e){
                                 return e.getMessage();
@@ -209,28 +234,26 @@ public class DeleteExec implements ExecPlan {
                     lockManager.lockRead(indexHeaderId, threadId);
                     IndexHeader indexHeader = diskManager.getIndexHeader(tableName, indexName);
                     int hashIndex = hash % indexHeader.getIndexHashArraySize();
+                    if (hashIndex < 0) hashIndex += indexHeader.getIndexHashArraySize();
                     long indexDataLockId = LockManager.computeId(tableName, DiskManager.AccessType.INDEX,indexName,hashIndex+1);
                     lockManager.lockWrite(indexDataLockId, threadId);
                     IndexPageHeader indexPageHeader = diskManager.getIndexPageHeader(tableName, indexName, hashIndex+1);
                     int indexDataNum = indexPageHeader.getIndexNum();
-                    List<TableDefine.Type> typeList = new ArrayList<>();
                     List<TableDefine.Type> tableTypeList = tableDefine.getColTypes();
                     List<String> colNameList = tableDefine.getColNames();
                     int colIndex = colNameList.indexOf(columnName);
-                    typeList.add(tableTypeList.get(colIndex));
-                    typeList.add(TableDefine.Type.INTEGER); // page index
-                    typeList.add(TableDefine.Type.INTEGER); // record index
-                    List<List<String>> attrValues = new ArrayList<>();
+                    IndexUtils indexUtils = new IndexUtils(tableTypeList.get(colIndex),tableDefine.getColAttrs().get(colIndex));
 
                     for (int i = 0; i < indexDataNum; i++) {
-                        byte[] indexData = diskManager.getOneIndexData(tableName, hashIndex+1,indexName, i,InsertExec.CalculateLength(typeList,attrValues));
+                        byte[] indexData = diskManager.getOneIndexData(tableName, hashIndex+1,indexName, i,indexUtils.getIndexDataLength());
                         if (indexData[0] == 1) {
-                            List<Object> valueList1 = DataDump.load(typeList, indexData,0);
+                            List<Object> valueList1 = DataDump.load(indexUtils.getTypeList(), indexData,0);
                             Integer pageIndex = (Integer) valueList1.get(1);
                             pageIndexSet.add(pageIndex);
                         }
                     }
                     pageIndexSetList.add(pageIndexSet);
+                    Printer.print("using index in indexName: " + indexName + " ,indexPageIndex: " + hashIndex+1 + " ,data: " + value + " ,chosenPageNum: " + pageIndexSet.size(),threadId);
                 }
                 Set<Integer> pageIndexSet = new TreeSet<>(pageIndexSetList.get(0));
                 for (Set<Integer> set : pageIndexSetList) {
@@ -249,7 +272,7 @@ public class DeleteExec implements ExecPlan {
                                 record[0] = 0;
                                 deleteNum++;
                                 diskManager.setOneRecord(tableName,pageId,i,record);
-                                deleteIndexData(indexColumnNameList,record,tableDefine,pageId,i);
+                                deleteIndexData(indexNameList,indexColumnNameList,record,tableDefine,pageId,i);
                             }else {
                                 try {
                                     if (whereExpression.evalNoAlias(record, tableDefine)) {
@@ -257,7 +280,7 @@ public class DeleteExec implements ExecPlan {
                                         record[0] = 0;
                                         deleteNum++;
                                         diskManager.setOneRecord(tableName,pageId,i,record);
-                                        deleteIndexData(indexColumnNameList,record,tableDefine,pageId,i);
+                                        deleteIndexData(indexNameList,indexColumnNameList,record,tableDefine,pageId,i);
                                     }
                                 }catch (DataTypeException e){
                                     return e.getMessage();
@@ -279,43 +302,44 @@ public class DeleteExec implements ExecPlan {
         return String.join("\n", res);
     }
 
-    private void deleteIndexData(List<String> indexColumnNames,byte[] recordWithValid,TableDefine tableDefine,int pageIndex,int recordIndex) throws BlockException, DataDirException, IOException, DataTypeException {
-        for (String indexColumnName : indexColumnNames) {
+    private void deleteIndexData(List<String> indexNames,List<String> indexColumnList,byte[] recordWithValid,TableDefine tableDefine,int pageIndex,int recordIndex) throws BlockException, DataDirException, IOException, DataTypeException {
+        for (int i = 0 ; i < indexNames.size();i++) {
+            String indexName = indexNames.get(i);
+            String indexColumnName = indexColumnList.get(i);
             List<Object> valueList = DataDump.load(tableDefine.getColTypes(), recordWithValid,0);
-            long indexHeaderId = LockManager.computeId(tableName, DiskManager.AccessType.INDEX,indexColumnName,0);
-            IndexHeader indexHeader = diskManager.getIndexHeader(tableName, indexColumnName);
-            deleteSpecificIndexData(indexColumnName,valueList,tableDefine,indexHeader,pageIndex,recordIndex);
+            long indexHeaderId = LockManager.computeId(tableName, DiskManager.AccessType.INDEX,indexName,0);
+            lockManager.lockRead(indexHeaderId, threadId);
+            IndexHeader indexHeader = diskManager.getIndexHeader(tableName, indexName);
+            deleteSpecificIndexData(indexName,indexColumnName,valueList,tableDefine,indexHeader,pageIndex,recordIndex);
         }
     }
 
-    private void deleteSpecificIndexData(String indexColumnName, List<Object> valueList, TableDefine tableDefine,IndexHeader indexHeader,int pageIndex,int recordIndex) throws BlockException, DataDirException, IOException, DataTypeException {
+    private void deleteSpecificIndexData(String indexName,String indexColumnName, List<Object> valueList, TableDefine tableDefine,IndexHeader indexHeader,int pageIndex,int recordIndex) throws BlockException, DataDirException, IOException, DataTypeException {
         int columnNameIndex = tableDefine.getColNames().indexOf(indexColumnName);
         Object value = valueList.get(columnNameIndex);
         int hash = value.toString().hashCode();
-        int hashIndex = hash % indexHeader.getIndexHashArraySize();
-        long indexDataLockId = LockManager.computeId(tableName, DiskManager.AccessType.INDEX,indexColumnName,hashIndex+1);
+        hash %= indexHeader.getIndexHashArraySize();
+        if (hash < 0) hash += indexHeader.getIndexHashArraySize();
+        long indexDataLockId = LockManager.computeId(tableName, DiskManager.AccessType.INDEX,indexName,hash+1);
         lockManager.lockWrite(indexDataLockId, threadId);
-        IndexPageHeader indexPageHeader = diskManager.getIndexPageHeader(tableName, indexColumnName, hashIndex+1);
+        IndexPageHeader indexPageHeader = diskManager.getIndexPageHeader(tableName, indexName, hash+1);
         int indexDataNum = indexPageHeader.getIndexNum();
-        List<TableDefine.Type> typeList = new ArrayList<>();
         List<TableDefine.Type> tableTypeList = tableDefine.getColTypes();
         List<String> colNameList = tableDefine.getColNames();
         int colIndex = colNameList.indexOf(indexColumnName);
-        typeList.add(tableTypeList.get(colIndex));
-        typeList.add(TableDefine.Type.INTEGER); // page index
-        typeList.add(TableDefine.Type.INTEGER); // record index
-        List<List<String>> attrValues = new ArrayList<>();
+        IndexUtils indexUtils = new IndexUtils(tableTypeList.get(colIndex),tableDefine.getColAttrs().get(colIndex));
 
         for (int i = 0; i < indexDataNum; i++) {
-            byte[] indexData = diskManager.getOneIndexData(tableName, hashIndex+1,indexColumnName, i,InsertExec.CalculateLength(typeList,attrValues));
+            byte[] indexData = diskManager.getOneIndexData(tableName, hash+1,indexName, i,indexUtils.getIndexDataLength());
             if (indexData[0] == 1) {
-                List<Object> valueList1 = DataDump.load(typeList, indexData,0);
+                List<Object> valueList1 = DataDump.load(indexUtils.getTypeList(), indexData,0);
                 Integer pageIndex1 = (Integer) valueList1.get(1);
                 Integer recordIndex1 = (Integer) valueList1.get(2);
                 if (pageIndex1 == pageIndex && recordIndex1 == recordIndex) {
-                    if (isTxn) transactionExecutor.addChangeLog(new IndexChangeLog(tableName, hashIndex+1,indexColumnName, i, InsertExec.CalculateLength(typeList,attrValues),indexData.clone()));
+                    if (isTxn) transactionExecutor.addChangeLog(new IndexChangeLog(tableName, hash+1,indexName, i, indexUtils.getIndexDataLength(),indexData.clone()));
                     indexData[0] = 0;
-                    diskManager.setOneIndexData(tableName, hashIndex+1,indexColumnName, i, InsertExec.CalculateLength(typeList,attrValues),indexData);
+                    Printer.print("delete index data on indexName: " + indexName + ", \ndata: " + value,threadId);
+                    diskManager.setOneIndexData(tableName, hash+1,indexName, i, indexUtils.getIndexDataLength(),indexData);
                     break;
                 }
             }
@@ -371,19 +395,25 @@ public class DeleteExec implements ExecPlan {
         Pair<Boolean,Expression.Op> right = isSameOp(whereExpression.getRight());
         if (right.getFirst() && left.getFirst()) {
             if (right.getSecond() == left.getSecond()) {
-                Expression.Op op = right.getSecond();
-                boolean isSame = right.getSecond() == whereExpression.getOp();
-                if (right.getSecond() == Expression.Op.EQUAL && whereExpression.getOp() != Expression.Op.EQUAL) {
-                    isSame = true;
-                    op = whereExpression.getOp();
+                if (right.getSecond() == Expression.Op.EQUAL) {
+                    return new Pair<>(true,whereExpression.getOp());
+                }else {
+                    if (whereExpression.getOp() == right.getSecond()) {
+                        return new Pair<>(true,whereExpression.getOp());
+                    }else {
+                        return new Pair<>(false,null);
+                    }
                 }
-                return new Pair<>(isSame, op);
             }else {
                 if ((right.getSecond() == Expression.Op.AND && left.getSecond() == Expression.Op.OR) || (right.getSecond() == Expression.Op.OR && left.getSecond() == Expression.Op.AND)) {
                     return new Pair<>(false, null);
                 }else {
                     Expression.Op op = right.getSecond() != Expression.Op.EQUAL ? right.getSecond() : left.getSecond();
-                    return new Pair<>(true, op);
+                    if (op == whereExpression.getOp()) {
+                        return new Pair<>(true, op);
+                    }else {
+                        return new Pair<>(false, null);
+                    }
                 }
             }
         }else {
@@ -397,7 +427,7 @@ public class DeleteExec implements ExecPlan {
         List<Expression> equelExpressionList = new ArrayList<>();
         addAllEquelExpression(whereExpression, equelExpressionList);
         for (Expression expression : equelExpressionList) {
-            if (expression.getRight().getOp() == expression.getRight().getOp()) {
+            if (expression.getRight().getOp() == expression.getLeft().getOp()) {
                 continue;
             }
             if (expression.getLeft().getOp() == Expression.Op.NULL) {

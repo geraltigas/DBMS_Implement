@@ -16,6 +16,7 @@ import net.sf.jsqlparser.statement.select.SetOperationList;
 import net.sf.jsqlparser.statement.values.ValuesStatement;
 import org.springframework.beans.factory.annotation.Autowired;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -38,7 +39,7 @@ public class InsertHanlder implements Handler {
     }
 
     @Override
-    public int handle(Statement query) {
+    public int handle(Statement query) throws IOException {
         Insert insert = (Insert) query;
         String tableName = insert.getTable().getName();
         String[] colNames;
