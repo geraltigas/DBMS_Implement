@@ -65,8 +65,7 @@ public class CreateTableExec implements ExecPlan {
         return isTxn;
     }
     @Override
-    public String execute(String dataPath) throws IOException, DataTypeException, DataDirException {
-        List<String> res = new LinkedList<>();
+    public String execute(String dataPath) throws IOException, DataTypeException, DataDirException {List<String> res = new LinkedList<>();
         // create dirs and table files
         Path dataDir = Paths.get(dataPath);
         Path tableDir = dataDir.resolve("tables");

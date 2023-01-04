@@ -77,6 +77,7 @@ public class InsertExec implements ExecPlan {
     public String execute(String dataPath) throws FieldNotFoundException, BlockException, IOException, DataDirException, DataTypeException {
         TableDefine tableDefine = tableBuffer.getTableDefine(tableName);
 
+
         List<List<Object>> records = new LinkedList<>();
 
         List<String> definedColNames = tableDefine.getColNames();
@@ -118,6 +119,7 @@ public class InsertExec implements ExecPlan {
             }
             records.add(record);
         }
+
 
         return insertRecords(records,tableDefine.getColTypes(),tableDefine.getColAttrs());
     }
@@ -197,7 +199,6 @@ public class InsertExec implements ExecPlan {
             int oldRecordNum = pageHeader.getRecordNum();
             pageHeader.setRecordNum(records.size() > recordPerBlock - firstPageRecordNum ?recordPerBlock : records.size()+firstPageRecordNum);
             pageHeader.setLastRecordOffset(pageHeader.getLastRecordOffset() - dataT.length);
-
             if (isTxn) transactionExecutor.addChangeLog(new TablePageHeaderChangeLog(tableName,pageNum,oldPageHeader));
             diskManager.setPageHeader(tableName,pageNum,pageHeader);
             int recordNum = dataT.length/pageHeader.getRecordLength();
@@ -256,6 +257,7 @@ public class InsertExec implements ExecPlan {
     }
 
     private void insertWithIndex(List<Object> record, int pageIdx, int recordIdx) throws IOException, DataTypeException, BlockException, DataDirException {
+        System.out.println("here 4");
         Pair<List<String>,List<String>> pair = tableBuffer.getIndexNameAndIndexColumnNameList(tableName);
         TableDefine tableDefine = tableBuffer.getTableDefine(tableName);
         List<String> indexNameList = pair.getFirst();

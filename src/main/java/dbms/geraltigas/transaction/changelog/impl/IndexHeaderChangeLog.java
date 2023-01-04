@@ -29,5 +29,6 @@ public class IndexHeaderChangeLog extends ChangeLog {
     @Override
     public void recover() throws BlockException, DataDirException, IOException {
         diskManager.setIndexHeader(tableName, indexName, oldIndexHeader);
+        System.out.println("[ChangeLog] rollback index header :" + tableName + ", \nindexName: " + indexName + " ");
     }
 }

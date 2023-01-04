@@ -31,5 +31,6 @@ public class IndexChangeLog extends ChangeLog {
     @Override
     public void recover() throws BlockException, IOException {
         diskManager.setOneIndexData(tableName, pageIndex, indexName, indexDataIndex, indexDataLength, oldIndexData);
+        System.out.println("[ChangeLog] rollback index :" + tableName + ", \nindexPageIdx: " + pageIndex + ", \nindexName: " + indexName + ", \nindexDataIdx: " + indexDataIndex + " ");
     }
 }

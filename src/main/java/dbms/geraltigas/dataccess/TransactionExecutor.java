@@ -12,7 +12,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ConcurrentLinkedDeque;
 
-public class TransactionExecutor implements Executor{
+import static dbms.geraltigas.utils.Printer.DEBUG;
+
+public class TransactionExecutor extends Executor{
     long threadId;
     private ConcurrentLinkedDeque<ExecPlan> execPlans = new ConcurrentLinkedDeque<>();
 
@@ -21,6 +23,8 @@ public class TransactionExecutor implements Executor{
 
     private ExecuteEngine executeEngine;
 
+    private int nowHash = 0;
+
     private List<ChangeLog> changeLogs = new ArrayList<>();
 
     public TransactionExecutor(long threadId) {
@@ -28,9 +32,16 @@ public class TransactionExecutor implements Executor{
     }
 
     public void rollBack() throws BlockException, DataDirException, IOException {
-        for (ChangeLog changeLog : changeLogs) {
-            changeLog.recover();
+        // reverse for each change log
+        for (int i = changeLogs.size() - 1; i >= 0; i--) {
+            DEBUG("Rolling back change log " + i);
+            changeLogs.get(i).recover();
         }
+        executeEngine.addResult(nowHash, "DeadLock detected. Transaction rolled back");
+        executeEngine.endTransaction(threadId);
+//        for (ChangeLog changeLog : changeLogs) {
+//            changeLog.recover();
+//        }
     }
 
     @Override
@@ -57,6 +68,7 @@ public class TransactionExecutor implements Executor{
                 assert execPlan != null;
                 String res = null;
                 try {
+                    nowHash = execPlan.hashCode();
                     res = execPlan.execute(executeEngine.getDateDir());
                     step++;
                 } catch (IOException | DataTypeException | FieldNotFoundException | BlockException | DataDirException e) {

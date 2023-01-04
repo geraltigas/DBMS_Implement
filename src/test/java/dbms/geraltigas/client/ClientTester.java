@@ -2,21 +2,20 @@ package dbms.geraltigas.client;
 
 import dbms.geraltigas.bean.ApplicationContextUtils;
 import dbms.geraltigas.buffer.PageBuffer;
+import dbms.geraltigas.dataccess.DiskManager;
 import dbms.geraltigas.dataccess.ExecuteEngine;
+import dbms.geraltigas.scheduled.Tasks;
 import dbms.geraltigas.transaction.LockManager;
+import dbms.geraltigas.utils.Printer;
 import org.springframework.beans.factory.annotation.Autowired;
 import java.io.*;
 import java.net.Socket;
 import java.nio.file.Path;
 
-// TODO: deadlock check
-// TODO: empty hole remove
-// TODO: transaction test
-// TODO: pageBuffer remove page into list for recycle
 // TODO: test limit lifetime of DBMS
 
 public class ClientTester {
-    String name;
+    public String name;
     static String host = "localhost";
     static String port = "12345";
     private Socket socket;
@@ -29,8 +28,13 @@ public class ClientTester {
 
     @Autowired
     PageBuffer pageBuffer;
+    @Autowired
+    Tasks tasks;
+    public boolean isClosed = false;
+
     public ClientTester(String name) throws IOException, InterruptedException {
         ApplicationContextUtils.autowire(this);
+        tasks.openClearHoles.set(false);
         Socket socket = new Socket(host, Integer.parseInt(port));
         this.socket = socket;
         this.name = name;
@@ -63,6 +67,7 @@ public class ClientTester {
         outputStream.write((message+"\n").getBytes());
         outputStream.flush();
         String line = "";
+        print("Waiting for response...");
         while (!bufferedReader.ready()) {
         }
         while (bufferedReader.ready()) {
@@ -73,6 +78,7 @@ public class ClientTester {
     }
 
     public void close() throws IOException, InterruptedException {
+        isClosed = true;
         Thread.sleep(1000);
         socket.close();
         print("Client closed");
@@ -81,6 +87,7 @@ public class ClientTester {
     public static void begin() throws IOException, InterruptedException {
         Thread.sleep(1000);
     }
+
 
     public void clearAllData() throws InterruptedException {
         Thread.sleep(1000);

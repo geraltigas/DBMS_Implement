@@ -28,5 +28,6 @@ public class TablePageHeaderChangeLog extends ChangeLog {
     @Override
     public void recover() throws BlockException, DataDirException, IOException {
         diskManager.setPageHeader(tableName, pageId, oldPageHeader);
+        System.out.println("[ChangeLog] rollback table page header :" + tableName + ", \npageId: " + pageId + " ");
     }
 }

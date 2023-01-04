@@ -97,10 +97,7 @@ public class CreateIndexExec implements ExecPlan {
 
         if (isTxn) transactionExecutor.addChangeLog(new CreateFileChangeLog(indexFile.toString()));
 
-        long headerId = LockManager.computeId(tableName, DiskManager.AccessType.INDEX,indexName,0);
-        lockManager.lockWrite(headerId, threadId);
-        IndexHeader indexHeader = new IndexHeader();
-        diskManager.setIndexHeader(tableName,indexName,indexHeader);
+
 
         long tableHeaderId = LockManager.computeId(tableName, DiskManager.AccessType.TABLE, null ,0);
         lockManager.lockRead(tableHeaderId, threadId);
@@ -117,6 +114,11 @@ public class CreateIndexExec implements ExecPlan {
         }
 
         IndexUtils indexUtils = new IndexUtils(tableDefine.getColTypes().get(indexColumnIndex),tableDefine.getColAttrs().get(indexColumnIndex));
+
+        long headerId = LockManager.computeId(tableName, DiskManager.AccessType.INDEX,indexName,0);
+        lockManager.lockWrite(headerId, threadId);
+        IndexHeader indexHeader = new IndexHeader(indexUtils.getIndexDataLength());
+        diskManager.setIndexHeader(tableName,indexName,indexHeader);
 
         int indexDataLength = indexUtils.getIndexDataLength();
         for (int i = 0; i < tableDataPageNum; i++) {

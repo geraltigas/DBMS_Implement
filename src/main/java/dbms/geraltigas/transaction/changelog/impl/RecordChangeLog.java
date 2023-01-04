@@ -27,5 +27,6 @@ public class RecordChangeLog extends ChangeLog {
     @Override
     public void recover() throws BlockException, DataDirException, IOException {
         diskManager.setOneRecord(tableName, pageIndex, recordIndex, oldRecord);
+        System.out.println("[ChangeLog] rollback record :" + tableName + ", \nrecordPageIdx: " + pageIndex + ", \nrecordIdx: " + recordIndex + " ");
     }
 }

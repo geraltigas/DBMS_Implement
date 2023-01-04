@@ -1,20 +1,26 @@
 package dbms.geraltigas.dataccess;
 
 import dbms.geraltigas.buffer.PageBuffer;
+import dbms.geraltigas.buffer.TableBuffer;
 import dbms.geraltigas.exception.BlockException;
 import dbms.geraltigas.exception.DataDirException;
 import dbms.geraltigas.format.indexs.IndexHeader;
 import dbms.geraltigas.format.indexs.IndexPageHeader;
 import dbms.geraltigas.format.tables.PageHeader;
 import dbms.geraltigas.format.tables.TableHeader;
+import dbms.geraltigas.utils.Printer;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 
 import static dbms.geraltigas.buffer.PageBuffer.BLOCK_SIZE;
+import static dbms.geraltigas.utils.Printer.DEBUG;
 
 
 @Component
@@ -24,6 +30,9 @@ public class DiskManager {
     PageBuffer pageBuffer;
     @Autowired
     ExecuteEngine executeEngine;
+
+    @Autowired
+    private TableBuffer tableBuffer;
 
     public TableHeader getTableHeader(String tableName) throws BlockException, DataDirException, IOException {
         byte[] header = getBytesAt(tableName,AccessType.TABLE ,null,0, TableHeader.TABLE_HEADER_LENGTH);
@@ -60,6 +69,71 @@ public class DiskManager {
 
     public void setIndexHeader(String tableName, String indexName, IndexHeader indexHeader) throws BlockException, IOException {
         setBytesAt(tableName,AccessType.INDEX,indexName, indexHeader.ToBytes(), 0);
+    }
+
+    public void clearHoles() throws BlockException, DataDirException, IOException {
+        Path path = Path.of(executeEngine.getDateDir()).resolve("tables");
+        String[] tables = Arrays.stream(path.toFile().list()).map(s -> s.replace(".tbl","")).toArray(String[]::new);
+        for (String table : tables) {
+            TableHeader tableHeader = getTableHeader(table);
+            List<byte[]> validRecord = new ArrayList<>();
+            for (int i = 0; i < tableHeader.getTableLength(); i++) {
+                PageHeader pageHeader = getPageHeader(table, i+1);
+                for (int j = 0; j < pageHeader.getRecordNum(); j++) {
+                    byte[] record = getOneRecord(table, i+1, j);
+                    if (record.length == 0 ) {
+                        return;
+                    }
+                    if (record[0] == 1) {
+                        validRecord.add(record);
+                    }
+                }
+                int holeNum = pageHeader.getRecordNum() - validRecord.size();
+                pageHeader.setRecordNum(validRecord.size());
+                setPageHeader(table, i+1, pageHeader);
+                for (int j = 0; j < validRecord.size(); j++) {
+                    setOneRecord(table, i+1, j, validRecord.get(j));
+                }
+                if (holeNum > 0) {
+                    Printer.print("Clear " + holeNum +" holes in table " + table + " at pageIdx " + (i+1),-1);
+                }
+                validRecord.clear();
+            }
+
+            // clear index holes
+            Path indexPath = Path.of(executeEngine.getDateDir()).resolve("indexes").resolve(table);
+            String[] indexesName = indexPath.toFile().list();
+            if (indexesName == null) {
+                continue;
+            }
+            String[] indexes = Arrays.stream(indexesName).map(s -> s.split("\\[")[0]).toArray(String[]::new);
+            if (indexes  == null) {
+                continue;
+            }
+            for (String index : indexes) {
+                IndexHeader indexHeader = getIndexHeader(table, index);
+                List<byte[]> validIndex = new ArrayList<>();
+                for (int i = 0; i < indexHeader.getIndexHashArraySize(); i++) {
+                    IndexPageHeader indexPageHeader = getIndexPageHeader(table, index, i+1);
+                    for (int j = 0; j < indexPageHeader.getIndexNum(); j++) {
+                        byte[] indexData = getOneIndexData(table, i+1, index, j, indexHeader.getIndexDataLength());
+                        if (indexData[0] == 1) {
+                            validIndex.add(indexData);
+                        }
+                    }
+                    int holeNum = indexPageHeader.getIndexNum() - validIndex.size();
+                    indexPageHeader.setIndexNum(validIndex.size());
+                    setIndexPageHeader(table, index, i+1, indexPageHeader);
+                    for (int j = 0; j < validIndex.size(); j++) {
+                        setOneIndexData(table, i+1, index, j, indexHeader.getIndexDataPageNum() ,validIndex.get(j));
+                    }
+                    if (holeNum > 0) {
+                        Printer.print("Clear " + holeNum +" holes in index " + index + " at pageIdx " + (i+1),-1);
+                    }
+                    validIndex.clear();
+                }
+            }
+        }
     }
 
     public enum AccessType {
@@ -152,7 +226,10 @@ public class DiskManager {
     }
 
     public PageHeader getPageHeader(String tableName, int pageIndex) throws BlockException, DataDirException, IOException {
+        DEBUG("in getPageHeader");
         byte[] pageData = getPage(tableName, pageIndex);
+        DEBUG("in getPageHeader2");
+
         return new PageHeader(pageData);
     }
 

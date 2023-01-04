@@ -12,7 +12,7 @@ import java.io.IOException;
 import java.util.concurrent.ConcurrentLinkedDeque;
 
 @Component
-public class NormalExecutor implements Executor {
+public class NormalExecutor extends Executor {
 
     private ConcurrentLinkedDeque<ExecPlan> execPlans = new ConcurrentLinkedDeque<>();
 
@@ -39,7 +39,7 @@ public class NormalExecutor implements Executor {
     public void run() {
         System.out.println("[ExecuteEngine] NormalExecutor begin");
         while (true) {
-            if (execPlans.size() > 0) {
+            if (execPlans.size() > 0 && !executeEngine.getNormalStop()) {
                 ExecPlan execPlan = execPlans.poll();
                 assert execPlan != null;
                 String res = null;

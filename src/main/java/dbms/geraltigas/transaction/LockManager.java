@@ -1,8 +1,10 @@
 package dbms.geraltigas.transaction;
 
 import dbms.geraltigas.dataccess.DiskManager;
+import dbms.geraltigas.utils.Printer;
 import lombok.Getter;
 import lombok.Setter;
+import org.springframework.boot.web.server.Ssl;
 import org.springframework.stereotype.Component;
 
 import java.util.*;
@@ -32,25 +34,34 @@ public class LockManager { // add read or write lock to every page
 
     public void lockRead(long pageId, long transactionId) {
         mutex.lock();
+        Printer.print("Try to lockRead : " +  pageId,transactionId);
         if (lockMap.containsKey(pageId)) {
             PageLockInfo pageLockInfo = lockMap.get(pageId);
             if (pageLockInfo.lockType == LockType.WRITE) {
+                Printer.print("Page " + pageId + " has been lock write",transactionId);
                 if (pageLockInfo.txnIdList.contains(transactionId)) {
+                    Printer.print("Page " + pageId + " has been lock write by this transaction",transactionId);
                     pageLockInfo.lockNum++;
                     pageLockInfo.txnIdList.add(transactionId);
                 } else {
                     try {
+                        Printer.print("Page " + pageId + " has been lock write by other transaction, thread stalling",transactionId);
                         pageLockInfo.condition.await();
+                        // wake up
+                        Printer.print("Page " + pageId + " has been unlock by other transaction, thread wake up",transactionId);
                         lockRead(pageId, transactionId);
                     } catch (InterruptedException e) {
                         e.printStackTrace();
                     }
                 }
             } else {
+                Printer.print("Page " + pageId + " has been lock read",transactionId);
                 pageLockInfo.lockNum++;
                 pageLockInfo.txnIdList.add(transactionId);
+                Printer.print("Add readLock success",transactionId);
             }
         } else {
+            Printer.print("Page " + pageId + " has not been lock",transactionId);
             PageLockInfo pageLockInfo = new PageLockInfo();
             pageLockInfo.lockType = LockType.READ;
             pageLockInfo.lockNum = 1;
@@ -58,21 +69,27 @@ public class LockManager { // add read or write lock to every page
             pageLockInfo.txnIdList.clear();
             pageLockInfo.txnIdList.add(transactionId);
             lockMap.put(pageId, pageLockInfo);
+            Printer.print("Add readLock success",transactionId);
         }
         mutex.unlock();
     }
 
     public void lockWrite(long pageId, long transactionId) {
         mutex.lock();
+        Printer.print("Try to lockWrite : " +  pageId,transactionId);
         if (lockMap.containsKey(pageId)) {
             PageLockInfo pageLockInfo = lockMap.get(pageId);
             if (pageLockInfo.lockType == LockType.WRITE) {
+                Printer.print("Page " + pageId + " has been lock write",transactionId);
                 if (pageLockInfo.txnIdList.contains(transactionId)) {
                     pageLockInfo.lockNum++;
                     pageLockInfo.txnIdList.add(transactionId);
+                    Printer.print("Add writeLock success",transactionId);
                 } else {
                     try {
+                        Printer.print("Page " + pageId + " has been lock write by other transaction"+ pageLockInfo.txnIdList.get(0) +", thread stalling",transactionId);
                         pageLockInfo.condition.await();
+                        Printer.print("Page " + pageId + " has been unlock by other transaction, thread wake up",transactionId);
                         lockWrite(pageId, transactionId);
                     } catch (InterruptedException e) {
                         e.printStackTrace();
@@ -90,8 +107,10 @@ public class LockManager { // add read or write lock to every page
                     pageLockInfo.lockType = LockType.WRITE;
                     pageLockInfo.lockNum++;
                     pageLockInfo.txnIdList.add(transactionId);
+                    Printer.print("Page " + pageId + " has been lock read by this transaction, lock updated",transactionId);
                 } else {
                     try {
+                        Printer.print("Page " + pageId + " has been lock read by other transaction, thread stalling",transactionId);
                         pageLockInfo.condition.await();
                         lockWrite(pageId, transactionId);
                     } catch (InterruptedException e) {
@@ -100,12 +119,14 @@ public class LockManager { // add read or write lock to every page
                 }
             }
         } else {
+            Printer.print("Page " + pageId + " has not been lock",transactionId);
             PageLockInfo pageLockInfo = new PageLockInfo();
             pageLockInfo.lockType = LockType.WRITE;
             pageLockInfo.lockNum = 1;
             pageLockInfo.condition = mutex.newCondition();
             pageLockInfo.txnIdList.add(transactionId);
             lockMap.put(pageId, pageLockInfo);
+            Printer.print("Add writeLock success",transactionId);
         }
         mutex.unlock();
     }
@@ -117,9 +138,11 @@ public class LockManager { // add read or write lock to every page
             if (pageLockInfo.txnIdList.contains(transactionId)) {
                 pageLockInfo.lockNum--;
                 pageLockInfo.txnIdList.remove(transactionId);
+                Printer.print("Unlock one lock of "+pageId,transactionId);
                 if (pageLockInfo.lockNum == 0) {
                     lockMap.remove(pageId);
                     pageLockInfo.condition.signalAll();
+                    Printer.print("Unlock all lock success",transactionId);
                 }
             }
         }
@@ -139,6 +162,7 @@ public class LockManager { // add read or write lock to every page
         for (Long pageId : pageIdList) {
             unlock(pageId, transactionId);
         }
+        Printer.print("Unlock all pages",transactionId);
         mutex.unlock();
     }
 
@@ -177,6 +201,7 @@ public class LockManager { // add read or write lock to every page
     }
 
     public static long computeId(String tableName, DiskManager.AccessType type,String appendName, int pageIndex) {
+        System.out.println("[LockManger] computeId: \n tableName: " + tableName + ", \naccessType: " + type + ", \nappendName: " + appendName + ", \nPageIndex: " + pageIndex);
         // compute id from table name, access type, append name and page number
         long id = tableName.hashCode();
         id<<=32;

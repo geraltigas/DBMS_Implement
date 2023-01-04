@@ -1,5 +1,6 @@
 package dbms.geraltigas.transaction.changelog.impl;
 
+import dbms.geraltigas.bean.ApplicationContextUtils;
 import dbms.geraltigas.dataccess.DiskManager;
 import dbms.geraltigas.exception.BlockException;
 import dbms.geraltigas.exception.DataDirException;
@@ -20,10 +21,12 @@ public class TableHeaderChangeLog extends ChangeLog {
         this.tableName = tableName;
         this.oldTableHeader = oldTableHeader;
         super.changeType = ChangeType.TABLE_HEADER;
+        ApplicationContextUtils.autowire(this);
     }
 
     @Override
     public void recover() throws BlockException, IOException, DataDirException {
         diskManager.setTableHeader(tableName, oldTableHeader);
+        System.out.println("[ChangeLog] rollback table header :" + tableName + " ");
     }
 }

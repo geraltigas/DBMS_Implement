@@ -14,6 +14,8 @@ import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.locks.ReentrantLock;
 
+import static dbms.geraltigas.utils.Printer.DEBUG;
+
 @Component
 public class PageBuffer {
     public static final int BLOCK_SIZE = 4096;
@@ -29,32 +31,31 @@ public class PageBuffer {
         return pageArrayBuffer;
     }
 
-    public void FlushPages(ArrayList<Page> pages) throws BlockException, IOException {
+    public void FlushPages(ArrayList<Page> pages) {
         mutex.lock();
+        DEBUG("Get diskManager Lock");
         for (Page page: pages){
             setPage(page.tableName, page.type,page.appendPath, page.blockId,page,true);
         }
         mutex.unlock();
     }
 
-     public void FlushIntoDisk() throws BlockException {
+     public void FlushIntoDisk() {
         mutex.lock();
+         DEBUG("Get diskManager Lock");
         for (int i = 0 ; i < changedPageSet.size();i++) {
             Page page = changedPageSet.poll();
             if (page == null) {
                 continue;
             }
-            try {
-                setBlockToDisk(page.tableName, page.type, page.appendPath, page.blockId, page.data);
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
+            setBlockToDisk(page.tableName, page.type, page.appendPath, page.blockId, page.data);
         }
         mutex.unlock();
     }
 
     public void deleteTable(String tableName) {
         mutex.lock();
+        DEBUG("Get diskManager Lock");
         for (int i = 0; i < this.pageArrayBuffer.length;i++) {
             Page page = this.pageArrayBuffer[i];
             if (page != null && page.tableName != null) {
@@ -68,6 +69,40 @@ public class PageBuffer {
 
     public Deque<Page> getChangedPageList() {
         return changedPageSet;
+    }
+
+    public void deleteRelatedPage(String tableName, DiskManager.AccessType table, Object o) {
+        mutex.lock();
+        DEBUG("Get diskManager Lock");
+        for (int i = 0; i < this.pageArrayBuffer.length;i++) {
+            Page page = this.pageArrayBuffer[i];
+            if (page != null && page.tableName != null) {
+                if (page.tableName.equals(tableName)) {
+                    if (table == DiskManager.AccessType.TABLE) {
+                        this.pageArrayBuffer[i] = null;
+                    } else if (table == DiskManager.AccessType.INDEX) {
+                        if (page.appendPath.equals(o)) {
+                            this.pageArrayBuffer[i] = null;
+                        }
+                    }
+                }
+            }
+        }
+        for (int i = 0; i < this.changedPageSet.size();i++) {
+            Page page = this.changedPageSet.poll();
+            if (page != null && page.tableName != null) {
+                if (page.tableName.equals(tableName)) {
+                    if (table == DiskManager.AccessType.TABLE) {
+                        this.changedPageSet.add(page);
+                    } else if (table == DiskManager.AccessType.INDEX) {
+                        if (page.appendPath.equals(o)) {
+                            this.changedPageSet.add(page);
+                        }
+                    }
+                }
+            }
+        }
+        mutex.unlock();
     }
 
     public class Page implements Comparable<Page> {
@@ -124,43 +159,69 @@ public class PageBuffer {
         return hashCode;
     }
 
-    public Page getPage(String tableName, DiskManager.AccessType type, String appendPath, int blockId) throws BlockException, IOException {
+    public Page getPage(String tableName, DiskManager.AccessType type, String appendPath, int blockId) {
         mutex.lock();
+        DEBUG("Get diskManager Lock");
         int hashCode = getHashCode(tableName, type, appendPath, blockId);
+        DEBUG("table name: " + tableName + " type: " + type + " appendPath: " + appendPath + " blockId: " + blockId + " hashcode: " + hashCode);
         if (pageArrayBuffer[hashCode] == null) {
+            DEBUG("page is null");
             for (Page page : changedPageSet) {
-                if (page.tableName.equals(tableName) && page.type == type && page.appendPath.equals(appendPath) && page.blockId == blockId) {
+                if (page.tableName.equals(tableName) && page.type == type && Objects.equals(page.appendPath, appendPath) && page.blockId == blockId) {
                     pageArrayBuffer[hashCode] = page;
                     mutex.unlock();
                     return page;
                 }
             }
-            pageArrayBuffer[hashCode] = new Page(tableName,type, appendPath ,blockId, getBlockFromDisk(tableName, type, appendPath, blockId));
+            try {
+                pageArrayBuffer[hashCode] = new Page(tableName,type, appendPath ,blockId, getBlockFromDisk(tableName, type, appendPath, blockId));
+            } catch (BlockException e) {
+                throw new RuntimeException(e);
+            }
         }
         Page page = pageArrayBuffer[hashCode];
         if (page.blockId != blockId || !Objects.equals(page.tableName, tableName) || page.type != type || !Objects.equals(page.appendPath, appendPath)) {
             if (page.isWrited) {
+                DEBUG("page is writed");
                 changedPageSet.add(page);
+                DEBUG("add page to changedPageSet");
                 for (Page temp : changedPageSet) {
-                    if (temp.tableName.equals(tableName) && temp.type == type && temp.appendPath.equals(appendPath) && temp.blockId == blockId) {
+                    DEBUG("TEST ONE");
+                    DEBUG("table name: " + temp.tableName + " type: " + temp.type + " appendPath: " + temp.appendPath + " blockId: " + temp.blockId);
+                    if (temp.tableName.equals(tableName) && temp.type == type && Objects.equals(temp.appendPath, appendPath) && temp.blockId == blockId) {
+                        DEBUG("page is in changedPageSet");
                         pageArrayBuffer[hashCode] = temp;
                         mutex.unlock();
                         return temp;
                     }
                 }
-                Page temp = new Page(tableName,type,appendPath,blockId, getBlockFromDisk(tableName, type, appendPath, blockId));
+                DEBUG("page is not in changedPageSet");
+                Page temp = null;
+                try {
+                    temp = new Page(tableName,type,appendPath,blockId, getBlockFromDisk(tableName, type, appendPath, blockId));
+                } catch (BlockException e) {
+                    throw new RuntimeException(e);
+                }
                 pageArrayBuffer[hashCode] = temp;
+                mutex.unlock();
                 return temp;
             }else {
+                DEBUG("page is not writed");
                 for (Page temp : changedPageSet) {
-                    if (temp.tableName.equals(tableName) && temp.type == type && temp.appendPath.equals(appendPath) && temp.blockId == blockId) {
+                    if (temp.tableName.equals(tableName) && temp.type == type && Objects.equals(temp.appendPath, appendPath) && temp.blockId == blockId) {
                         pageArrayBuffer[hashCode] = temp;
                         mutex.unlock();
                         return temp;
                     }
                 }
-                Page temp = new Page(tableName,type,appendPath,blockId, getBlockFromDisk(tableName,type,appendPath, blockId));
+                Page temp = null;
+                try {
+                    temp = new Page(tableName,type,appendPath,blockId, getBlockFromDisk(tableName,type,appendPath, blockId));
+                } catch (BlockException e) {
+                    throw new RuntimeException(e);
+                }
                 pageArrayBuffer[hashCode] = temp;
+                mutex.unlock();
                 return temp;
             }
         }
@@ -168,7 +229,7 @@ public class PageBuffer {
         return pageArrayBuffer[hashCode];
     }
 
-     public void setPage(String tableName, DiskManager.AccessType type, String appendPath, int blockId, Page page, boolean isWrited) throws IOException, BlockException {
+     public void setPage(String tableName, DiskManager.AccessType type, String appendPath, int blockId, Page page, boolean isWrited) {
         int hashCode = getHashCode(tableName, type,appendPath, blockId);
         page.isWrited = isWrited;
         if (pageArrayBuffer[hashCode] == null) {
@@ -185,7 +246,7 @@ public class PageBuffer {
         }
     }
 
-    private byte[] getBlockFromDisk(String tableName, DiskManager.AccessType type, String appendPath, int blockId) throws BlockException, IOException {
+    private byte[] getBlockFromDisk(String tableName, DiskManager.AccessType type, String appendPath, int blockId) {
         long fromOffset = blockId * BLOCK_SIZE;
         long toOffset = fromOffset + BLOCK_SIZE;
 
@@ -196,7 +257,11 @@ public class PageBuffer {
             String finalAppendPath = appendPath;
             String[] filted = Arrays.stream(Objects.requireNonNull(dirList)).filter(s -> s.contains(finalAppendPath)).toArray(String[]::new);
             if (filted.length == 0) {
-                throw new BlockException("index file not found");
+                try {
+                    throw new BlockException("index file not found");
+                } catch (BlockException e) {
+                    throw new RuntimeException(e);
+                }
             }
             appendPath = filted[0];
         }
@@ -206,18 +271,35 @@ public class PageBuffer {
             case TABLE -> path = Paths.get(executeEngine.getDateDir()+ "/tables/" + tableName + ".tbl");
             case INDEX -> path = Paths.get(executeEngine.getDateDir()+ "/indexes/" +tableName+"/"+ appendPath);
             case BULK -> path = Paths.get(executeEngine.getDateDir()+ "/tables/" + tableName + ".bulk");
-            default -> throw new BlockException("Invalid access type");
+            default -> {
+                try {
+                    throw new BlockException("Invalid access type");
+                } catch (BlockException e) {
+                    throw new RuntimeException(e);
+                }
+            }
         }
         File file = path.toFile();
-        RandomAccessFile randomAccessFile = new RandomAccessFile(file, "r");
-        randomAccessFile.seek(fromOffset);
-        byte[] data = new byte[BLOCK_SIZE];
-        randomAccessFile.read(data,0, (int) (toOffset - fromOffset));
-        randomAccessFile.close();
+        RandomAccessFile randomAccessFile = null;
+        try {
+            randomAccessFile = new RandomAccessFile(file, "r");
+        } catch (FileNotFoundException e) {
+            throw new RuntimeException(e);
+        }
+        byte[] data;
+        try {
+            randomAccessFile.seek(fromOffset);
+            data = new byte[BLOCK_SIZE];
+            randomAccessFile.read(data,0, (int) (toOffset - fromOffset));
+            randomAccessFile.close();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+
         return data;
     }
 
-    private boolean setBlockToDisk(String tableName, DiskManager.AccessType type, String appendPath, int blockId, byte[] data) throws IOException, BlockException {
+    private boolean setBlockToDisk(String tableName, DiskManager.AccessType type, String appendPath, int blockId, byte[] data) {
         long fromOffset = blockId * BLOCK_SIZE;
         long toOffset = fromOffset + BLOCK_SIZE;
         Path path = null;
@@ -228,7 +310,11 @@ public class PageBuffer {
             String finalAppendPath = appendPath;
             String[] filted = Arrays.stream(Objects.requireNonNull(dirList)).filter(s -> s.contains(finalAppendPath)).toArray(String[]::new);
             if (filted.length == 0) {
-                throw new BlockException("index file not found");
+                try {
+                    throw new BlockException("index file not found");
+                } catch (BlockException e) {
+                    throw new RuntimeException(e);
+                }
             }
             appendPath = filted[0];
         }
@@ -236,13 +322,29 @@ public class PageBuffer {
             case TABLE -> path = Paths.get(executeEngine.getDateDir()+ "/tables/" + tableName + ".tbl");
             case INDEX -> path = Paths.get(executeEngine.getDateDir()+ "/indexes/" +tableName+"/"+ appendPath);
             case BULK -> path = Paths.get(executeEngine.getDateDir()+ "/tables/" + tableName + ".bulk");
-            default -> throw new BlockException("Invalid access type");
+            default -> {
+                try {
+                    throw new BlockException("Invalid access type");
+                } catch (BlockException e) {
+                    throw new RuntimeException(e);
+                }
+            }
         }
         File file = path.toFile();
-        RandomAccessFile randomAccessFile = new RandomAccessFile(file, "rw");
-        randomAccessFile.seek(fromOffset);
-        randomAccessFile.write(data);
-        randomAccessFile.close();
+        RandomAccessFile randomAccessFile = null;
+        try {
+            randomAccessFile = new RandomAccessFile(file, "rw");
+        } catch (FileNotFoundException e) {
+            throw new RuntimeException(e);
+        }
+        try {
+            randomAccessFile.seek(fromOffset);
+            randomAccessFile.write(data);
+            randomAccessFile.close();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+
         return true;
     }
 

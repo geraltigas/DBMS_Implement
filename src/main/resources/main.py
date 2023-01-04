@@ -3,11 +3,12 @@ import socket
 def main():
     print("Welcome to DBMS demo by geraltigas")
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    s.connect(('nameserver', 12345))
+    s.connect(('localhost', 12345))
     res = s.recv(1024)
     if 'OK' in res.decode('utf-8'):
-        print("Connected to nameserver")
-    res = res.decode('utf-8').replace('OK', '')
+        print("Connected to server")
+
+    res = res.decode('utf-8').replace('OK\n', '')
     if res == '':
         res = s.recv(1024).decode('utf-8')
     print(res)

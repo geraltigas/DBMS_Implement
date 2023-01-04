@@ -31,5 +31,6 @@ public class IndexPageHeaderChangeLog extends ChangeLog {
     @Override
     public void recover() throws BlockException, DataDirException, IOException {
         diskManager.setIndexPageHeader(tableName,indexName ,pageId, oldPageHeader);
+        System.out.println("[ChangeLog] rollback index page header :" + tableName + ", \nindexName: " + indexName + ", \npageId: " + pageId + " ");
     }
 }

@@ -9,6 +9,7 @@ import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
+import javax.swing.*;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -17,6 +18,9 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.atomic.AtomicBoolean;
+
+import static dbms.geraltigas.utils.Printer.DEBUG;
 
 @Component
 public class ExecuteEngine {
@@ -54,6 +58,10 @@ public class ExecuteEngine {
                 throw new DataDirException("Failed to create data dir");
             }
         }
+    }
+
+    public boolean hasTxn() {
+        return !transactions.isEmpty();
     }
 
     public boolean existTxn(long threadId) {
@@ -109,24 +117,60 @@ public class ExecuteEngine {
     public void detectDeadLock() throws BlockException, DataDirException, IOException {
         List<Long> txnStepToRemove = new ArrayList<>();
         List<Long> txnToRollback = new ArrayList<>();
-        for (Map.Entry<Long,Integer> entry : txnStep.entrySet()) {
-            TransactionExecutor executor = (TransactionExecutor) transactions.get(entry.getKey());
-            if (executor == null) {
-                txnStepToRemove.add(entry.getKey());
-                continue;
+        DEBUG("Former txn step: " + txnStep);
+
+        if (txnStep.isEmpty()) {
+            for (Map.Entry<Long, TransactionExecutor> entry : transactions.entrySet()) {
+                txnStep.put(entry.getKey(), entry.getValue().getStep());
             }
-            if (entry.getValue() == executor.getStep()) {
-                txnStepToRemove.add(entry.getKey());
-                txnToRollback.add(entry.getKey());
-            } else {
-                txnStep.replace(entry.getKey(), executor.getStep());
+        } else {
+            for (Map.Entry<Long, TransactionExecutor> entry : transactions.entrySet()) {
+                if (txnStep.containsKey(entry.getKey())) {
+                    int step = txnStep.get(entry.getKey());
+                    if (step == entry.getValue().getStep()) {
+                        txnToRollback.add(entry.getKey());
+                    } else {
+                        txnStep.put(entry.getKey(), entry.getValue().getStep());
+                    }
+                } else {
+                    txnStep.put(entry.getKey(), entry.getValue().getStep());
+                }
+            }
+            for (Map.Entry<Long,Integer> entry : txnStep.entrySet()) {
+                if (!transactions.containsKey(entry.getKey())) {
+                    txnStepToRemove.add(entry.getKey());
+                }
             }
         }
+
+        DEBUG("DeadLock detected, rollback txn: " + txnToRollback);
+
         for (Long key : txnStepToRemove) {
             txnStep.remove(key);
         }
         for (Long key : txnToRollback) {
             rollbackTxn(key);
         }
+
+        DEBUG("Current txn step: " + txnStep);
+
+    }
+
+    private AtomicBoolean normalStop = new AtomicBoolean(false);
+
+    public void setNormalStop(boolean stop) {
+        this.normalStop.set(stop);
+    }
+
+    public boolean getNormalStop() {
+        return this.normalStop.get();
+    }
+
+    public void endTransaction(long threadId) {
+        Executor executor = transactions.get(threadId);
+        if (executor != null) {
+            executor.interrupt();
+        }
+        // remove thread in executeService
     }
 }
