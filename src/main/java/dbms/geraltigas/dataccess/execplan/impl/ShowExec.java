@@ -15,7 +15,10 @@ public class ShowExec implements ExecPlan {
     private long threadId;
     private String variable;
     private String message = null;
-
+    @Override
+    public boolean getIsTxn() {
+        return isTxn;
+    }
     public ShowExec(String variable,String message) {
         if (variable != null) {
             this.variable = variable.split(" ")[1];

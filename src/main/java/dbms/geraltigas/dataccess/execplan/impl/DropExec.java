@@ -39,7 +39,10 @@ public class DropExec implements ExecPlan {
     public DropExec(String tableName) {
         this.tableName = tableName;
     }
-
+    @Override
+    public boolean getIsTxn() {
+        return isTxn;
+    }
     @Override
     public String execute(String dataPath) throws BlockException, DataDirException, IOException {
         List<String> res = new ArrayList<>();

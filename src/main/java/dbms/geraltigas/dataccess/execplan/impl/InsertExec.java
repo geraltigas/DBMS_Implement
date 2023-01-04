@@ -121,9 +121,13 @@ public class InsertExec implements ExecPlan {
 
         return insertRecords(records,tableDefine.getColTypes(),tableDefine.getColAttrs());
     }
-
-    private String insertRecords(List<List<Object>> records, List<TableDefine.Type> colTypes, List<List<String>> colAttrs) throws BlockException, IOException, DataDirException, DataTypeException { // TODO: need massive test
+    @Override
+    public boolean getIsTxn() {
+        return isTxn;
+    }
+    private String insertRecords(List<List<Object>> records, List<TableDefine.Type> colTypes, List<List<String>> colAttrs) throws BlockException, IOException, DataDirException, DataTypeException {
         if (records.size() != 1) {
+            if (isTxn) lockManager.unlockAll(threadId);
             return "Not support multi insert";
         }
         long tableHeaderId = LockManager.computeId(tableName, DiskManager.AccessType.TABLE,null,0);
@@ -134,6 +138,7 @@ public class InsertExec implements ExecPlan {
         byte[] data = new byte[writeSize];
         boolean isOk = DataDump.dumpSrc(data,per_size,colTypes,records);
         if (!isOk) {
+            if (isTxn) lockManager.unlockAll(threadId);
             return "Value Format Exception, please insert valid values. \n"+"String length too long.";
         }
         if (tableHeader.getTableLength() == 0) {

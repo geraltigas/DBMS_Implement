@@ -28,7 +28,10 @@ public class CommitTxnExec implements ExecPlan {
     public void setThreadId(long threadId) {
         this.threadId = threadId;
     }
-
+    @Override
+    public boolean getIsTxn() {
+        return isTxn;
+    }
     @Override
     public long getThreadId() {
         return threadId;

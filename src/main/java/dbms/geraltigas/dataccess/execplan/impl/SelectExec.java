@@ -22,8 +22,7 @@ import java.util.*;
 
 import static dbms.geraltigas.expression.Expression.evalAliasExpression;
 
-public class SelectExec implements ExecPlan { // TODO:  change to lock and index
- // TODO: implement hash join
+public class SelectExec implements ExecPlan {
     List<Expression> expressions;
     List<String> names;
     List<String> tableNames;
@@ -41,6 +40,8 @@ public class SelectExec implements ExecPlan { // TODO:  change to lock and index
     @Autowired
     TableBuffer tableBuffer;
 
+    boolean ambiguous = false;
+
     @Autowired
     DiskManager diskManager;
 
@@ -53,6 +54,8 @@ public class SelectExec implements ExecPlan { // TODO:  change to lock and index
     public String execute(String dataPath) throws BlockException, DataDirException, IOException, DataTypeException {
         List<String> res = new ArrayList<>();
         addPrintHead(res,names);
+        boolean useHashJoin = false;
+
         if (tableNames.size() == 1) {
             String tableName = tableNames.get(0);
             Pair<List<String>,List<String>> pair = tableBuffer.getIndexNameAndIndexColumnNameList(tableName);
@@ -99,6 +102,7 @@ public class SelectExec implements ExecPlan { // TODO:  change to lock and index
                                         Expression.nullEval(record, tableDefine, names, expressions, res);
                                     }
                                 }catch (DataTypeException e) {
+                                    if (isTxn) lockManager.unlockAll(threadId);
                                     return e.getMessage();
                                 }
                             }
@@ -165,6 +169,7 @@ public class SelectExec implements ExecPlan { // TODO:  change to lock and index
                                         Expression.nullEval(record, tableDefine, names, expressions, res);
                                     }
                                 }catch (DataTypeException e) {
+                                    if (isTxn) lockManager.unlockAll(threadId);
                                     return e.getMessage();
                                 }
                             }
@@ -231,6 +236,7 @@ public class SelectExec implements ExecPlan { // TODO:  change to lock and index
                                         Expression.nullEval(record, tableDefine, names, expressions, res);
                                     }
                                 }catch (DataTypeException e) {
+                                    if (isTxn) lockManager.unlockAll(threadId);
                                     return e.getMessage();
                                 }
                             }
@@ -238,7 +244,9 @@ public class SelectExec implements ExecPlan { // TODO:  change to lock and index
                     }
                 }
             }
-        }else if (useHashJoin()){
+        }else if (useHashJoin())
+        {
+            if (ambiguous) return "Ambiguous column name";
             Printer.print("using hash join",threadId);
             List<Set<byte[]>> recordSetList = new ArrayList<>();
             for (String tableName : tableNames) {
@@ -384,6 +392,7 @@ public class SelectExec implements ExecPlan { // TODO:  change to lock and index
                 colNameSet.addAll(tableBuffer.getTableDefine(tableName).getColNames());
             }
             if (colNameSet.size() != colNameList.size()) {
+                if (isTxn) lockManager.unlockAll(threadId);
                 return "Ambiguous column name";
             }
             while (from.hasNext()) {
@@ -405,9 +414,30 @@ public class SelectExec implements ExecPlan { // TODO:  change to lock and index
 
         return String.join("\n", res);
     }
-
-    private boolean useHashJoin() throws IOException {
+    @Override
+    public boolean getIsTxn() {
+        return isTxn;
+    }
+    private boolean useHashJoin() throws IOException, DataTypeException {
         boolean isOk = true;
+        if (whereExpression == null) {
+            return false;
+        }
+        List<List<TableDefine.Type>> types = new ArrayList<>();
+        List<TableDefine.Type> typeList = new ArrayList<>();
+        List<String> colNameList = new ArrayList<>();
+        Set<String> colNameSet = new TreeSet<>();
+        for (String tableName : tableNames) {
+            types.add(tableBuffer.getTableDefine(tableName).getColTypes());
+            typeList.addAll(tableBuffer.getTableDefine(tableName).getColTypes());
+            colNameList.addAll(tableBuffer.getTableDefine(tableName).getColNames());
+            colNameSet.addAll(tableBuffer.getTableDefine(tableName).getColNames());
+        }
+        if (colNameSet.size() != colNameList.size()) {
+            if (isTxn) lockManager.unlockAll(threadId);
+            ambiguous = true;
+            return true;
+        }
         if (tableNames.size() != 2) {
             isOk = false;
         }

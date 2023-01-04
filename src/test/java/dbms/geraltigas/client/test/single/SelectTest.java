@@ -272,10 +272,10 @@ public class SelectTest {
 
         res = clientTester.send("SELECT id,name,age FROM test WHERE id = 1");
         assertEquals("\n" +
-                "Field age not found",res);
+                "Field age not found in Expression Evaluation Cache, please make sure calculate the expression in order",res);
         res = clientTester.send("SELECT id,name,age FROM test");
         assertEquals("\n" +
-                "Field age not found",res);
+                "Field age not found in Expression Evaluation Cache, please make sure calculate the expression in order",res);
 
         clientTester.close();
     }

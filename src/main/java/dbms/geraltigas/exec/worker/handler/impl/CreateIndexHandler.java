@@ -18,7 +18,7 @@ public class CreateIndexHandler implements Handler {
     }
 
     @Override
-    public int handle(Statement query) throws HandleException { // TODO: handle CREATE INDEX
+    public int handle(Statement query) throws HandleException {
         CreateIndex createIndex = (CreateIndex) query;
         String indexName = createIndex.getIndex().getName();
         String tableName = createIndex.getTable().getName();

@@ -158,6 +158,7 @@ public class DeleteTest {
 
                 |id        |name      |float     |
                 Total records: 0""",res);
+        clientTester.close();
     }
 
     @Test
@@ -217,13 +218,13 @@ public class DeleteTest {
                 Total records: 3""",res);
         res = clientTester.send("DELETE FROM test WHERE id = 'ok'");
         assertEquals("\n" +
-                "Integer type can not compare with other type",res);
+                "Column id type dont match",res);
         res = clientTester.send("DELETE FROM test WHERE name = 1");
         assertEquals("\n" +
-                "String type can not compare with other type",res);
+                "Column name type dont match",res);
         res = clientTester.send("DELETE FROM test WHERE float = 'ok'");
         assertEquals("\n" +
-                "Float type can not compare with other type",res);
+                "Column float type dont match",res);
         res = clientTester.send("SELECT * FROM test");
         assertEquals("""
 
@@ -335,7 +336,7 @@ public class DeleteTest {
         clientTester.send("AUTH root root");
         res = clientTester.send("CREATE TABLE test (id INT, name VARCHAR(20),float FLOAT)");
         assertEquals("""
-
+                
                 Create table file;
                 Write table metadata;
                 Write table header""",res);

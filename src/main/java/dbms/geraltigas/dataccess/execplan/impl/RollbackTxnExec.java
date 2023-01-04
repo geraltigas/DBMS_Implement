@@ -12,7 +12,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 import java.io.IOException;
 
-public class RollbackTxnExec implements ExecPlan { // TODO:  change to lock and index
+public class RollbackTxnExec implements ExecPlan {
     @Autowired
     TableBuffer tableBuffer;
 
@@ -28,7 +28,10 @@ public class RollbackTxnExec implements ExecPlan { // TODO:  change to lock and 
     public long getThreadId() {
         return threadId;
     }
-
+    @Override
+    public boolean getIsTxn() {
+        return isTxn;
+    }
     boolean isTxn;
     Executor transactionExecutor;
     @Autowired

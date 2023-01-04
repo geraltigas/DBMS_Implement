@@ -10,46 +10,64 @@ import java.io.*;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
+import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.ConcurrentSkipListSet;
+import java.util.concurrent.locks.ReentrantLock;
 
 @Component
 public class PageBuffer {
     public static final int BLOCK_SIZE = 4096;
     private static final int BLOCK_COUNT = 4096;
 
+    private ReentrantLock mutex = new ReentrantLock();
     private Page[] pageArrayBuffer;
-    private Set<Page> changedPageSet = new TreeSet<>();
+    private Deque<Page> changedPageSet = new ConcurrentLinkedDeque<>();
     @Autowired
     ExecuteEngine executeEngine;
 
-    synchronized public void FlushPages(ArrayList<Page> pages) throws BlockException, IOException {
-        for (Page page : pages) {
-            this.setPage(page.tableName,page.type,page.appendPath, page.blockId, page,true);
-        }
+    public Page[] getPageArrayBuffer() {
+        return pageArrayBuffer;
     }
 
-    synchronized public void FlushIntoDisk() throws BlockException {
-        for (Page page : this.pageArrayBuffer) {
-            if (page != null && page.isWrited) {
-                try {
-                    setBlockToDisk(page.tableName, page.type, page.appendPath ,page.blockId, page.data);
-                    setPage(page.tableName, page.type, page.appendPath, page.blockId, page, false);
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
+    public void FlushPages(ArrayList<Page> pages) throws BlockException, IOException {
+        mutex.lock();
+        for (Page page: pages){
+            setPage(page.tableName, page.type,page.appendPath, page.blockId,page,true);
+        }
+        mutex.unlock();
+    }
+
+     public void FlushIntoDisk() throws BlockException {
+        mutex.lock();
+        for (int i = 0 ; i < changedPageSet.size();i++) {
+            Page page = changedPageSet.poll();
+            if (page == null) {
+                continue;
+            }
+            try {
+                setBlockToDisk(page.tableName, page.type, page.appendPath, page.blockId, page.data);
+            } catch (IOException e) {
+                e.printStackTrace();
             }
         }
+        mutex.unlock();
     }
 
     public void deleteTable(String tableName) {
+        mutex.lock();
         for (int i = 0; i < this.pageArrayBuffer.length;i++) {
             Page page = this.pageArrayBuffer[i];
             if (page != null && page.tableName != null) {
-                if (page.blockId != -1 && page.type == DiskManager.AccessType.TABLE && page.tableName.equals(tableName)) {
-                    this.pageArrayBuffer[i] = new Page();
+                if (page.tableName.equals(tableName)) {
+                    this.pageArrayBuffer[i] = null;
                 }
             }
         }
+        mutex.unlock();
+    }
+
+    public Deque<Page> getChangedPageList() {
+        return changedPageSet;
     }
 
     public class Page implements Comparable<Page> {
@@ -106,31 +124,65 @@ public class PageBuffer {
         return hashCode;
     }
 
-    synchronized public Page getPage(String tableName, DiskManager.AccessType type, String appendPath, int blockId) throws BlockException, IOException {
+    public Page getPage(String tableName, DiskManager.AccessType type, String appendPath, int blockId) throws BlockException, IOException {
+        mutex.lock();
         int hashCode = getHashCode(tableName, type, appendPath, blockId);
         if (pageArrayBuffer[hashCode] == null) {
+            for (Page page : changedPageSet) {
+                if (page.tableName.equals(tableName) && page.type == type && page.appendPath.equals(appendPath) && page.blockId == blockId) {
+                    pageArrayBuffer[hashCode] = page;
+                    mutex.unlock();
+                    return page;
+                }
+            }
             pageArrayBuffer[hashCode] = new Page(tableName,type, appendPath ,blockId, getBlockFromDisk(tableName, type, appendPath, blockId));
         }
         Page page = pageArrayBuffer[hashCode];
         if (page.blockId != blockId || !Objects.equals(page.tableName, tableName) || page.type != type || !Objects.equals(page.appendPath, appendPath)) {
             if (page.isWrited) {
-                setBlockToDisk(page.tableName, page.type, page.appendPath , page.blockId, page.data);
+                changedPageSet.add(page);
+                for (Page temp : changedPageSet) {
+                    if (temp.tableName.equals(tableName) && temp.type == type && temp.appendPath.equals(appendPath) && temp.blockId == blockId) {
+                        pageArrayBuffer[hashCode] = temp;
+                        mutex.unlock();
+                        return temp;
+                    }
+                }
                 Page temp = new Page(tableName,type,appendPath,blockId, getBlockFromDisk(tableName, type, appendPath, blockId));
                 pageArrayBuffer[hashCode] = temp;
                 return temp;
             }else {
+                for (Page temp : changedPageSet) {
+                    if (temp.tableName.equals(tableName) && temp.type == type && temp.appendPath.equals(appendPath) && temp.blockId == blockId) {
+                        pageArrayBuffer[hashCode] = temp;
+                        mutex.unlock();
+                        return temp;
+                    }
+                }
                 Page temp = new Page(tableName,type,appendPath,blockId, getBlockFromDisk(tableName,type,appendPath, blockId));
                 pageArrayBuffer[hashCode] = temp;
                 return temp;
             }
         }
+        mutex.unlock();
         return pageArrayBuffer[hashCode];
     }
 
-    synchronized private void setPage(String tableName, DiskManager.AccessType type, String appendPath, int blockId, Page page, boolean isWrited) throws IOException {
+     public void setPage(String tableName, DiskManager.AccessType type, String appendPath, int blockId, Page page, boolean isWrited) throws IOException, BlockException {
         int hashCode = getHashCode(tableName, type,appendPath, blockId);
         page.isWrited = isWrited;
-        pageArrayBuffer[hashCode] = page;
+        if (pageArrayBuffer[hashCode] == null) {
+            pageArrayBuffer[hashCode] = page;
+        }else {
+            if (pageArrayBuffer[hashCode].blockId != blockId || !Objects.equals(pageArrayBuffer[hashCode].tableName, tableName) || pageArrayBuffer[hashCode].type != type || !Objects.equals(pageArrayBuffer[hashCode].appendPath, appendPath)) {
+                if (pageArrayBuffer[hashCode].isWrited) {
+                    changedPageSet.add(pageArrayBuffer[hashCode]);
+                }
+                pageArrayBuffer[hashCode] = page;
+            }else {
+                pageArrayBuffer[hashCode] = page;
+            }
+        }
     }
 
     private byte[] getBlockFromDisk(String tableName, DiskManager.AccessType type, String appendPath, int blockId) throws BlockException, IOException {

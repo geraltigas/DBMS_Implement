@@ -29,7 +29,7 @@ public class DeleteHandler implements Handler {
     }
 
     @Override
-    public int handle(Statement query) throws ExpressionException { // TODO: handle DELETE
+    public int handle(Statement query) throws ExpressionException {
         Delete delete = (Delete) query;
         String tableName = delete.getTable().getName();
         Expression where = delete.getWhere();

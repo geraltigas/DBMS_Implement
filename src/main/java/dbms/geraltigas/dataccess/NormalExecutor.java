@@ -2,6 +2,7 @@ package dbms.geraltigas.dataccess;
 
 import dbms.geraltigas.dataccess.execplan.ExecPlan;
 import dbms.geraltigas.exception.*;
+import dbms.geraltigas.transaction.LockManager;
 import dbms.geraltigas.transaction.changelog.ChangeLog;
 import lombok.SneakyThrows;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -16,6 +17,9 @@ public class NormalExecutor implements Executor {
     private ConcurrentLinkedDeque<ExecPlan> execPlans = new ConcurrentLinkedDeque<>();
 
     private ExecuteEngine executeEngine;
+
+    @Autowired
+    LockManager lockManager;
 
     @Override
     public void addExecplan(ExecPlan execPlan) {
@@ -41,6 +45,7 @@ public class NormalExecutor implements Executor {
                 String res = null;
                 try {
                     res = execPlan.execute(executeEngine.getDateDir());
+                    if (!execPlan.getIsTxn()) lockManager.unlockAll(execPlan.getThreadId());
                 } catch (IOException | DataTypeException | FieldNotFoundException | BlockException |
                          DataDirException e) {
                     exceptionHandler(e,res);

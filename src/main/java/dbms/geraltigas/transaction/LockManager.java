@@ -133,7 +133,6 @@ public class LockManager { // add read or write lock to every page
             for (Long txnId : entry.getValue().txnIdList) {
                 if (txnId == transactionId) {
                     pageIdList.add(entry.getKey());
-                    break;
                 }
             }
         }

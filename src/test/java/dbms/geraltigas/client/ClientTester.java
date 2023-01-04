@@ -1,6 +1,7 @@
 package dbms.geraltigas.client;
 
 import dbms.geraltigas.bean.ApplicationContextUtils;
+import dbms.geraltigas.buffer.PageBuffer;
 import dbms.geraltigas.dataccess.ExecuteEngine;
 import dbms.geraltigas.transaction.LockManager;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -12,6 +13,7 @@ import java.nio.file.Path;
 // TODO: empty hole remove
 // TODO: transaction test
 // TODO: pageBuffer remove page into list for recycle
+// TODO: test limit lifetime of DBMS
 
 public class ClientTester {
     String name;
@@ -24,6 +26,9 @@ public class ClientTester {
     ExecuteEngine executeEngine;
     @Autowired
     LockManager lockManager;
+
+    @Autowired
+    PageBuffer pageBuffer;
     public ClientTester(String name) throws IOException, InterruptedException {
         ApplicationContextUtils.autowire(this);
         Socket socket = new Socket(host, Integer.parseInt(port));
@@ -68,9 +73,7 @@ public class ClientTester {
     }
 
     public void close() throws IOException, InterruptedException {
-
-        print("Waiting for data persist");
-        Thread.sleep(10000);
+        Thread.sleep(1000);
         socket.close();
         print("Client closed");
     }
@@ -83,18 +86,34 @@ public class ClientTester {
         Thread.sleep(1000);
         Path path = Path.of(executeEngine.getDateDir());
         File file = path.toFile();
+
+        for (int i = 0; i < pageBuffer.getPageArrayBuffer().length;i++) {
+            pageBuffer.getPageArrayBuffer()[i] = null;
+        }
+
+        pageBuffer.getChangedPageList().clear();
+
         // delete this directory and all its subdirectories
         for (File f : file.listFiles()) {
 
             // delete all files in this directory
             for (File f1 : f.listFiles()) {
                 if (f1.isFile()) {
-                    f1.delete();
+                    boolean succ = f1.delete();
+                    if (!succ) {
+                        throw new RuntimeException("Failed to delete file " + f1.getAbsolutePath());
+                    }
                 }else {
                     for (File f2 : f1.listFiles()) {
-                        f2.delete();
+                        boolean succ = f2.delete();
+                        if (!succ) {
+                            throw new RuntimeException("Failed to delete file " + f2.getAbsolutePath());
+                        }
                     }
-                    f1.delete();
+                    boolean succ = f1.delete();
+                    if (!succ) {
+                        throw new RuntimeException("Failed to delete file " + f1.getAbsolutePath());
+                    }
                 }
             }
         }

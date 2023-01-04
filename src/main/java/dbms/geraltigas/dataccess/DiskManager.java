@@ -122,25 +122,17 @@ public class DiskManager {
             PageBuffer.Page page = pages.get(i);
             if (i == 0) {
                 page.writeBytes(data, blockOffset, Math.min(BLOCK_SIZE - blockOffset, data.length));
+                pageBuffer.setPage(tableName,type,appendName, page.blockId, page, true);
             } else if (i == pages.size() - 1) {
                 page.writeBytes(data, 0, blockEndOffset);
+                pageBuffer.setPage(tableName,type,appendName, page.blockId, page, true);
             } else {
                 page.writeBytes(data, 0, BLOCK_SIZE);
+                pageBuffer.setPage(tableName,type,appendName, page.blockId, page, true);
             }
         }
         pageBuffer.FlushPages(pages);
     }
-
-
-
-//    public byte[] getRecords(String tableName, int pageIndex) throws BlockException, DataDirException, IOException { // TODO: fix here
-//        byte[] pageData = getPage(tableName, pageIndex);
-//        PageHeader pageHeader = new PageHeader(pageData);
-//        int lastRecordOffset = pageHeader.getLastRecordOffset();
-//        byte[] records = new byte[pageHeader.getRecordNum() * pageHeader.getRecordLength()];
-//        System.arraycopy(pageData, lastRecordOffset, records, 0, records.length);
-//        return records;
-//    }
 
     public byte[] getOneRecord(String tableName, int pageIndex, int recordIndex) throws BlockException, DataDirException, IOException {
         byte[] pageData = getPage(tableName, pageIndex);

@@ -26,7 +26,10 @@ public class UpdateExec implements ExecPlan {
     public long getThreadId() {
         return this.threadId;
     }
-
+    @Override
+    public boolean getIsTxn() {
+        return isTxn;
+    }
     @Override
     public String execute(String dataPath) throws IOException, DataTypeException, FieldNotFoundException, BlockException, DataDirException {
         return null;

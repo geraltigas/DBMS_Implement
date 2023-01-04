@@ -11,6 +11,7 @@ import net.sf.jsqlparser.statement.drop.Drop;
 public class DropHandler implements Handler {
 
     ExecuteEngine executeEngine;
+
     long threadId = 0;
     public DropHandler() {
     }

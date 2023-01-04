@@ -60,7 +60,10 @@ public class CreateTableExec implements ExecPlan {
         }
         this.colAttrs = colAttrs;
     }
-
+    @Override
+    public boolean getIsTxn() {
+        return isTxn;
+    }
     @Override
     public String execute(String dataPath) throws IOException, DataTypeException, DataDirException {
         List<String> res = new LinkedList<>();

@@ -20,7 +20,7 @@ public class UpdateHandler implements Handler {
     }
 
     @Override
-    public int handle(Statement query) { // TODO: handle UPDATE
+    public int handle(Statement query) {
         return 0;
     }
 

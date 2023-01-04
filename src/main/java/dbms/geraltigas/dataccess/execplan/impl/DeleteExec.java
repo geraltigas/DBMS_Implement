@@ -57,7 +57,10 @@ public class DeleteExec implements ExecPlan {
         isTxn = txn;
         this.transactionExecutor =  executor;
     }
-
+    @Override
+    public boolean getIsTxn() {
+        return isTxn;
+    }
     @Override
     public String execute(String dataPath) throws IOException, FieldNotFoundException, BlockException, DataDirException, DataTypeException {
         List<String> res = new ArrayList<>();
@@ -83,19 +86,23 @@ public class DeleteExec implements ExecPlan {
         for (String columnName : whereColumnNameList) {
             int index = tableDefine.getColNames().indexOf(columnName);
             TableDefine.Type type = tableDefine.getColTypes().get(index);
+            int valueIndex = whereColumnNameList.indexOf(columnName);
             switch (type) {
                 case INTEGER -> {
-                    if (!(valueList.get(index).getSecond() instanceof Integer)) {
+                    if (!(valueList.get(valueIndex).getSecond() instanceof Long || valueList.get(valueIndex).getSecond() instanceof Integer)) {
+                        if (isTxn) lockManager.unlockAll(threadId);
                         return "Column " + columnName + " type dont match";
                     }
                 }
                 case FLOAT -> {
-                    if(!(valueList.get(index).getSecond() instanceof Float)) {
+                    if(!(valueList.get(valueIndex).getSecond() instanceof Float || valueList.get(valueIndex).getSecond() instanceof Double)) {
+                        if (isTxn) lockManager.unlockAll(threadId);
                         return "Column " + columnName + " type dont match";
                     }
                 }
                 case VARCHAR -> {
-                    if(!(valueList.get(index).getSecond() instanceof String)) {
+                    if(!(valueList.get(valueIndex).getSecond() instanceof String)) {
+                        if (isTxn) lockManager.unlockAll(threadId);
                         return "Column " + columnName + " type dont match";
                     }
                 }
@@ -130,6 +137,7 @@ public class DeleteExec implements ExecPlan {
                                         deleteIndexData(indexNameList,indexColumnNameList,record,tableDefine,index+1,i);
                                     }
                                 }catch (DataTypeException e) {
+                                    if (isTxn) lockManager.unlockAll(threadId);
                                     return e.getMessage();
                                 }
 
@@ -207,6 +215,7 @@ public class DeleteExec implements ExecPlan {
                                     deleteIndexData(indexNameList,indexColumnNameList,record,tableDefine,pageId,i);
                                 }
                             }catch (DataTypeException e){
+                                if (isTxn) lockManager.unlockAll(threadId);
                                 return e.getMessage();
                             }
 
@@ -283,6 +292,7 @@ public class DeleteExec implements ExecPlan {
                                         deleteIndexData(indexNameList,indexColumnNameList,record,tableDefine,pageId,i);
                                     }
                                 }catch (DataTypeException e){
+                                    if (isTxn) lockManager.unlockAll(threadId);
                                     return e.getMessage();
                                 }
                             }

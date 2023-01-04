@@ -51,7 +51,10 @@ public class CreateIndexExec implements ExecPlan {
         this.tableName = tableName;
         this.columnName = columnName;
     }
-
+    @Override
+    public boolean getIsTxn() {
+        return isTxn;
+    }
     @Override
     public String execute(String dataPath) throws IOException, BlockException, DataDirException, DataTypeException {
         Path dataDir = Paths.get(dataPath);
