@@ -56,7 +56,7 @@ public class CreateIndexExec implements ExecPlan {
         return isTxn;
     }
     @Override
-    public String execute(String dataPath) throws IOException, BlockException, DataDirException, DataTypeException {
+    public String execute(String dataPath) throws IOException, BlockException, DataDirException, DataTypeException, InterruptedException {
         Path dataDir = Paths.get(dataPath);
 
         TableDefine tableDefine = null;

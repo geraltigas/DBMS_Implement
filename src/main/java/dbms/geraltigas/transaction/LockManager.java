@@ -1,12 +1,15 @@
 package dbms.geraltigas.transaction;
 
 import dbms.geraltigas.dataccess.DiskManager;
+import dbms.geraltigas.dataccess.ExecuteEngine;
 import dbms.geraltigas.utils.Printer;
 import lombok.Getter;
 import lombok.Setter;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.web.server.Ssl;
 import org.springframework.stereotype.Component;
 
+import javax.swing.*;
 import java.util.*;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
@@ -26,13 +29,17 @@ public class LockManager { // add read or write lock to every page
         Condition condition;
     }
 
+    @Setter
+    ExecuteEngine executeEngine;
+
     enum LockType {
         READ, WRITE
     }
 
+//    @Autowired
+//    ExecuteEngine executeEngine;
 
-
-    public void lockRead(long pageId, long transactionId) {
+    public void lockRead(long pageId, long transactionId) throws InterruptedException {
         mutex.lock();
         Printer.print("Try to lockRead : " +  pageId,transactionId);
         if (lockMap.containsKey(pageId)) {
@@ -44,15 +51,21 @@ public class LockManager { // add read or write lock to every page
                     pageLockInfo.lockNum++;
                     pageLockInfo.txnIdList.add(transactionId);
                 } else {
-                    try {
-                        Printer.print("Page " + pageId + " has been lock write by other transaction, thread stalling",transactionId);
-                        pageLockInfo.condition.await();
-                        // wake up
-                        Printer.print("Page " + pageId + " has been unlock by other transaction, thread wake up",transactionId);
+                    Printer.print("Page " + pageId + " has been lock write by other transaction, thread stalling",transactionId);
+                    pageLockInfo.condition.await();
+                    // wake up
+                    Printer.print(""+executeEngine.transactions.size(),"info");
+                    Printer.print("Wake threadId" + transactionId,"info");
+                    Printer.print("existExecutor" + executeEngine.existExecutor(transactionId),"info");if (executeEngine.existExecutor(transactionId)) {
+                        Printer.print("Page " + pageId + " has been lock write by other transaction, thread wake up",transactionId);
                         lockRead(pageId, transactionId);
-                    } catch (InterruptedException e) {
-                        e.printStackTrace();
+                    } else {
+                        Printer.print("Page " + pageId + " has been lock write by other transaction, thread wake up, but transaction is aborted",transactionId);
+                        mutex.unlock();
+                        return;
                     }
+//                        Printer.print("Page " + pageId + " has been lock write by other transaction, thread wake up",transactionId);
+//                        lockRead(pageId, transactionId);
                 }
             } else {
                 Printer.print("Page " + pageId + " has been lock read",transactionId);
@@ -74,7 +87,7 @@ public class LockManager { // add read or write lock to every page
         mutex.unlock();
     }
 
-    public void lockWrite(long pageId, long transactionId) {
+    public void lockWrite(long pageId, long transactionId) throws InterruptedException {
         mutex.lock();
         Printer.print("Try to lockWrite : " +  pageId,transactionId);
         if (lockMap.containsKey(pageId)) {
@@ -86,14 +99,21 @@ public class LockManager { // add read or write lock to every page
                     pageLockInfo.txnIdList.add(transactionId);
                     Printer.print("Add writeLock success",transactionId);
                 } else {
-                    try {
-                        Printer.print("Page " + pageId + " has been lock write by other transaction"+ pageLockInfo.txnIdList.get(0) +", thread stalling",transactionId);
-                        pageLockInfo.condition.await();
-                        Printer.print("Page " + pageId + " has been unlock by other transaction, thread wake up",transactionId);
+                    Printer.print("Page " + pageId + " has been lock write by other transaction"+ pageLockInfo.txnIdList.get(0) +", thread stalling",transactionId);
+                    pageLockInfo.condition.await();
+                    Printer.print(""+executeEngine.transactions.size(),"info");
+                    Printer.print("Wake threadId" + transactionId,"info");
+                    Printer.print("existExecutor" + executeEngine.existExecutor(transactionId),"info");
+                    if (executeEngine.existExecutor(transactionId)) {
+                        Printer.print("Page " + pageId + " has been lock write by other transaction, thread wake up, try to lock again",transactionId);
                         lockWrite(pageId, transactionId);
-                    } catch (InterruptedException e) {
-                        e.printStackTrace();
+                    } else {
+                        Printer.print("Page " + pageId + " has been lock write by other transaction, thread wake up, but transaction is aborted",transactionId);
+                        mutex.unlock();
+                        throw new InterruptedException();
                     }
+//                        Printer.print("Page " + pageId + " has been lock write by other transaction, thread wake up, try to lock again",transactionId);
+//                        lockWrite(pageId, transactionId);
                 }
             } else {
                 boolean allMine = true;
@@ -109,13 +129,19 @@ public class LockManager { // add read or write lock to every page
                     pageLockInfo.txnIdList.add(transactionId);
                     Printer.print("Page " + pageId + " has been lock read by this transaction, lock updated",transactionId);
                 } else {
-                    try {
-                        Printer.print("Page " + pageId + " has been lock read by other transaction, thread stalling",transactionId);
-                        pageLockInfo.condition.await();
+                    Printer.print("Page " + pageId + " has been lock read by other transaction, thread stalling",transactionId);
+                    pageLockInfo.condition.await();
+                    Printer.print(""+executeEngine.transactions.size(),"info");
+                    Printer.print("Wake threadId" + transactionId,"info");
+                    Printer.print("existExecutor" + executeEngine.existExecutor(transactionId),"info");if (executeEngine.existExecutor(transactionId)) {
+                        Printer.print("Page " + pageId + " has been lock read by other transaction, thread wake up, try to lock again",transactionId);
                         lockWrite(pageId, transactionId);
-                    } catch (InterruptedException e) {
-                        e.printStackTrace();
+                    } else {
+                        Printer.print("Page " + pageId + " has been lock read by other transaction, thread wake up, but transaction is aborted",transactionId);
+                        mutex.unlock();
+                        throw new InterruptedException();
                     }
+//                        lockWrite(pageId, transactionId);
                 }
             }
         } else {

@@ -21,6 +21,8 @@ public class NormalExecutor extends Executor {
     @Autowired
     LockManager lockManager;
 
+
+
     @Override
     public void addExecplan(ExecPlan execPlan) {
         execPlans.add(execPlan);
@@ -35,6 +37,8 @@ public class NormalExecutor extends Executor {
     public void addChangeLog(ChangeLog changeLog) {
     }
 
+    public long nowThreadId = -1;
+
     @Override
     public void run() {
         System.out.println("[ExecuteEngine] NormalExecutor begin");
@@ -42,15 +46,19 @@ public class NormalExecutor extends Executor {
             if (execPlans.size() > 0 && !executeEngine.getNormalStop()) {
                 ExecPlan execPlan = execPlans.poll();
                 assert execPlan != null;
+                nowThreadId = execPlan.getThreadId();
                 String res = null;
                 try {
                     res = execPlan.execute(executeEngine.getDateDir());
+                    nowThreadId = -1;
                     if (!execPlan.getIsTxn()) lockManager.unlockAll(execPlan.getThreadId());
                 } catch (IOException | DataTypeException | FieldNotFoundException | BlockException |
                          DataDirException e) {
                     exceptionHandler(e,res);
                 } catch (ThreadStopException e) {
                     applicationStopHandler(e,res);
+                } catch (InterruptedException e) {
+                    res = "Interrupted";
                 }
                 executeEngine.addResult(execPlan.hashCode(), res);
             }

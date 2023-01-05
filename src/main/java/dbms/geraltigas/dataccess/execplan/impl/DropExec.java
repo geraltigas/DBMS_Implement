@@ -44,7 +44,7 @@ public class DropExec implements ExecPlan {
         return isTxn;
     }
     @Override
-    public String execute(String dataPath) throws BlockException, DataDirException, IOException {
+    public String execute(String dataPath) throws BlockException, DataDirException, IOException, InterruptedException {
         List<String> res = new ArrayList<>();
         if (isTxn) {
             return "Dont support drop in txn";

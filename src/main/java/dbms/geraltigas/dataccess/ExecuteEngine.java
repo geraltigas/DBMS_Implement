@@ -5,6 +5,7 @@ import dbms.geraltigas.exception.BlockException;
 import dbms.geraltigas.exception.DataDirException;
 import dbms.geraltigas.transaction.LockManager;
 import dbms.geraltigas.utils.Pair;
+import dbms.geraltigas.utils.Printer;
 import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -15,6 +16,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.ExecutorService;
@@ -30,7 +32,7 @@ public class ExecuteEngine {
     NormalExecutor normalExecutor;
 
     private ConcurrentHashMap<Integer, String> results = new ConcurrentHashMap<>();
-    private Map<Long, TransactionExecutor> transactions = new ConcurrentHashMap<>();
+    public Map<Long, TransactionExecutor> transactions = new ConcurrentHashMap<>();
 
     private Map<Long, Integer> txnStep = new ConcurrentHashMap<>();
 
@@ -38,6 +40,9 @@ public class ExecuteEngine {
 
     @Autowired
     ExecutorService executorService;
+
+    @Autowired
+    LockManager lockManager;
 
     public void setDataDir(String path) {
         this.dataPath = path;
@@ -65,7 +70,12 @@ public class ExecuteEngine {
     }
 
     public boolean existTxn(long threadId) {
+//        if (threadId == -1) return true;
         return transactions.containsKey(threadId);
+    }
+
+    public boolean existExecutor(long threadId) {
+        return existTxn(threadId) || threadId == normalExecutor.nowThreadId;
     }
 
     public void beginTxn(long threadId) {
@@ -84,12 +94,33 @@ public class ExecuteEngine {
         if (executor == null) {
             return;
         }
-        executor.rollBack();
+        executor.stop();
+
+        int hash = executor.rollBack();
         transactions.remove(threadId);
+        lockManager.unlockAll(threadId);
+        results.put(hash, "Transaction rollbacked");
     }
 
+    public synchronized void rollbackTxns(List<TransactionExecutor> transactionExecutors) throws BlockException, DataDirException, IOException {
+        List<Integer> hashs = new ArrayList<>();
+        for (TransactionExecutor executor : transactionExecutors) {
+            hashs.add(executor.rollBack());
+        }
+        for (TransactionExecutor executor : transactionExecutors) {
+            transactions.remove(executor.threadId);
+        }
+        for (int i = 0; i < transactionExecutors.size(); i++) {
+            transactionExecutors.get(i).stop();
+            lockManager.unlockAll(transactionExecutors.get(i).threadId);
+            results.put(hashs.get(i), "Transaction rollbacked");
+        }
+    }
+
+
+
     public void addExecPlan(ExecPlan execPlan) {
-        if (transactions.containsKey(execPlan.getThreadId())) {
+        if (transactions.containsKey(execPlan.getThreadId()) && !transactions.get(execPlan.getThreadId()).isLastRollBackOrCommit()) {
             // add execplan to transaction to shedule
             execPlan.setTxn(true, transactions.get(execPlan.getThreadId()));
             transactions.get(execPlan.getThreadId()).addExecplan(execPlan);
@@ -111,6 +142,7 @@ public class ExecuteEngine {
     private void beginDataAccessWatcher() {
         normalExecutor.setExecuteEngine(this);
         executorService.submit(normalExecutor);
+        lockManager.setExecuteEngine(this);
         System.out.println("[ExecuteEngine] NormalExecutor started");
     }
 
@@ -148,9 +180,14 @@ public class ExecuteEngine {
         for (Long key : txnStepToRemove) {
             txnStep.remove(key);
         }
+
+        List<TransactionExecutor> transactionExecutors = new ArrayList<>();
+
         for (Long key : txnToRollback) {
-            rollbackTxn(key);
+            transactionExecutors.add(transactions.get(key));
         }
+
+        rollbackTxns(transactionExecutors);
 
         DEBUG("Current txn step: " + txnStep);
 
@@ -169,7 +206,7 @@ public class ExecuteEngine {
     public void endTransaction(long threadId) {
         Executor executor = transactions.get(threadId);
         if (executor != null) {
-            executor.interrupt();
+            executor.stop();
         }
         // remove thread in executeService
     }

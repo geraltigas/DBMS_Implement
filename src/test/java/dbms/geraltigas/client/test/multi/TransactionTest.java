@@ -170,5 +170,6 @@ public class TransactionTest {
 //        multiShower.addScript("A", "stop");
 //        multiShower.addScript("B", "stop");
         multiShower.begin();
+        Thread.sleep(20000);
     }
 }

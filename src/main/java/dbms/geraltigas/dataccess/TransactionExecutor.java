@@ -1,6 +1,8 @@
 package dbms.geraltigas.dataccess;
 
 import dbms.geraltigas.dataccess.execplan.ExecPlan;
+import dbms.geraltigas.dataccess.execplan.impl.CommitTxnExec;
+import dbms.geraltigas.dataccess.execplan.impl.RollbackTxnExec;
 import dbms.geraltigas.exception.*;
 import dbms.geraltigas.transaction.changelog.ChangeLog;
 import lombok.Getter;
@@ -31,18 +33,19 @@ public class TransactionExecutor extends Executor{
         this.threadId = threadId;
     }
 
-    public void rollBack() throws BlockException, DataDirException, IOException {
+    public int rollBack() throws BlockException, DataDirException, IOException {
         // reverse for each change log
         for (int i = changeLogs.size() - 1; i >= 0; i--) {
             DEBUG("Rolling back change log " + i);
             changeLogs.get(i).recover();
         }
-        executeEngine.addResult(nowHash, "DeadLock detected. Transaction rolled back");
         executeEngine.endTransaction(threadId);
+        return nowHash;
 //        for (ChangeLog changeLog : changeLogs) {
 //            changeLog.recover();
 //        }
     }
+
 
     @Override
     public void addExecplan(ExecPlan execPlan) {
@@ -75,7 +78,10 @@ public class TransactionExecutor extends Executor{
                     exceptionHandler(e,res);
                 } catch (ThreadStopException e) {
                     System.out.println("[ExecuteEngine] TransactionExecutor " + threadId + " stop");
-                    executeEngine.addResult(execPlan.hashCode(),e.getMessage());
+                    executeEngine.addResult(execPlan.hashCode(), "Transaction stop");
+                    return;
+                } catch (InterruptedException e) {
+                    System.out.println("[ExecuteEngine] TransactionExecutor " + threadId + " stop");
                     return;
                 }
                 executeEngine.addResult(execPlan.hashCode(), res);
@@ -85,5 +91,10 @@ public class TransactionExecutor extends Executor{
 
     private void exceptionHandler(Exception e, String res) {
         throw new RuntimeException(e);
+    }
+
+    public boolean isLastRollBackOrCommit() {
+        if (execPlans.size() == 0) return false;
+        return execPlans.getLast() instanceof RollbackTxnExec || execPlans.getLast() instanceof CommitTxnExec;
     }
 }

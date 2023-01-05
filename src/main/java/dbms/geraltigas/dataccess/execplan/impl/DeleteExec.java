@@ -62,7 +62,7 @@ public class DeleteExec implements ExecPlan {
         return isTxn;
     }
     @Override
-    public String execute(String dataPath) throws IOException, FieldNotFoundException, BlockException, DataDirException, DataTypeException {
+    public String execute(String dataPath) throws IOException, FieldNotFoundException, BlockException, DataDirException, DataTypeException, InterruptedException {
         List<String> res = new ArrayList<>();
 
         TableDefine tableDefine = tableBuffer.getTableDefine(tableName);
@@ -312,7 +312,7 @@ public class DeleteExec implements ExecPlan {
         return String.join("\n", res);
     }
 
-    private void deleteIndexData(List<String> indexNames,List<String> indexColumnList,byte[] recordWithValid,TableDefine tableDefine,int pageIndex,int recordIndex) throws BlockException, DataDirException, IOException, DataTypeException {
+    private void deleteIndexData(List<String> indexNames,List<String> indexColumnList,byte[] recordWithValid,TableDefine tableDefine,int pageIndex,int recordIndex) throws BlockException, DataDirException, IOException, DataTypeException, InterruptedException {
         for (int i = 0 ; i < indexNames.size();i++) {
             String indexName = indexNames.get(i);
             String indexColumnName = indexColumnList.get(i);
@@ -324,7 +324,7 @@ public class DeleteExec implements ExecPlan {
         }
     }
 
-    private void deleteSpecificIndexData(String indexName,String indexColumnName, List<Object> valueList, TableDefine tableDefine,IndexHeader indexHeader,int pageIndex,int recordIndex) throws BlockException, DataDirException, IOException, DataTypeException {
+    private void deleteSpecificIndexData(String indexName,String indexColumnName, List<Object> valueList, TableDefine tableDefine,IndexHeader indexHeader,int pageIndex,int recordIndex) throws BlockException, DataDirException, IOException, DataTypeException, InterruptedException {
         int columnNameIndex = tableDefine.getColNames().indexOf(indexColumnName);
         Object value = valueList.get(columnNameIndex);
         int hash = value.toString().hashCode();

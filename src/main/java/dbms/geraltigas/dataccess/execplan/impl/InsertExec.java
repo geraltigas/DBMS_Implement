@@ -74,7 +74,7 @@ public class InsertExec implements ExecPlan {
     }
 
     @Override
-    public String execute(String dataPath) throws FieldNotFoundException, BlockException, IOException, DataDirException, DataTypeException {
+    public String execute(String dataPath) throws FieldNotFoundException, BlockException, IOException, DataDirException, DataTypeException, InterruptedException {
         TableDefine tableDefine = tableBuffer.getTableDefine(tableName);
 
 
@@ -127,7 +127,7 @@ public class InsertExec implements ExecPlan {
     public boolean getIsTxn() {
         return isTxn;
     }
-    private String insertRecords(List<List<Object>> records, List<TableDefine.Type> colTypes, List<List<String>> colAttrs) throws BlockException, IOException, DataDirException, DataTypeException {
+    private String insertRecords(List<List<Object>> records, List<TableDefine.Type> colTypes, List<List<String>> colAttrs) throws BlockException, IOException, DataDirException, DataTypeException, InterruptedException {
         if (records.size() != 1) {
             if (isTxn) lockManager.unlockAll(threadId);
             return "Not support multi insert";
@@ -256,7 +256,7 @@ public class InsertExec implements ExecPlan {
         return "Table " + tableName + " insert " + records.size() + " records";
     }
 
-    private void insertWithIndex(List<Object> record, int pageIdx, int recordIdx) throws IOException, DataTypeException, BlockException, DataDirException {
+    private void insertWithIndex(List<Object> record, int pageIdx, int recordIdx) throws IOException, DataTypeException, BlockException, DataDirException, InterruptedException {
         System.out.println("here 4");
         Pair<List<String>,List<String>> pair = tableBuffer.getIndexNameAndIndexColumnNameList(tableName);
         TableDefine tableDefine = tableBuffer.getTableDefine(tableName);

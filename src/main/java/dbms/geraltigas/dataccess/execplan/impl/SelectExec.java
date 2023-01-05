@@ -51,7 +51,7 @@ public class SelectExec implements ExecPlan {
     DeleteExec.IndexUseType indexUseType = DeleteExec.IndexUseType.NONE;
 
     @Override
-    public String execute(String dataPath) throws BlockException, DataDirException, IOException, DataTypeException {
+    public String execute(String dataPath) throws BlockException, DataDirException, IOException, DataTypeException, InterruptedException {
         List<String> res = new ArrayList<>();
         addPrintHead(res,names);
         boolean useHashJoin = false;

@@ -12,5 +12,5 @@ public interface ExecPlan {
     long getThreadId();
     boolean getIsTxn();
     void setTxn(boolean txn, Executor executor);
-    String execute(String dataPath) throws ThreadStopException,IOException, DataTypeException, FieldNotFoundException, BlockException, DataDirException;
+    String execute(String dataPath) throws ThreadStopException, IOException, DataTypeException, FieldNotFoundException, BlockException, DataDirException, InterruptedException;
 }
