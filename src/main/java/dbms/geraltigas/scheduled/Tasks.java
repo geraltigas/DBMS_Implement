@@ -46,7 +46,7 @@ public class Tasks {
         System.out.println("[DataPersistence] Flush finished");
     }
 
-    @Scheduled(fixedRate = 20000)
+    @Scheduled(fixedRate = 1000 * 63)
     public void deadLockDetect() {
         System.out.println("[DeadLockDetect] Starting to detect dead lock");
         DEBUG("HERE 1");

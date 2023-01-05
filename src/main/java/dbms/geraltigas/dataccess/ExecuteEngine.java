@@ -122,9 +122,11 @@ public class ExecuteEngine {
     public void addExecPlan(ExecPlan execPlan) {
         if (transactions.containsKey(execPlan.getThreadId()) && !transactions.get(execPlan.getThreadId()).isLastRollBackOrCommit()) {
             // add execplan to transaction to shedule
+            Printer.print("Add execplan to transaction" + execPlan.getThreadId(), "info");
             execPlan.setTxn(true, transactions.get(execPlan.getThreadId()));
             transactions.get(execPlan.getThreadId()).addExecplan(execPlan);
         } else {
+            Printer.print("Add to normal executor", "info");
             execPlan.setTxn(false,normalExecutor);
             normalExecutor.addExecplan(execPlan);
         }

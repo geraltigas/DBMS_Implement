@@ -50,6 +50,14 @@ public class PageBuffer {
             }
             setBlockToDisk(page.tableName, page.type, page.appendPath, page.blockId, page.data);
         }
+//        // TODO : to be test
+//        for (int i = 0; i < BLOCK_COUNT; i++) {
+//            if (pageArrayBuffer[i] != null && pageArrayBuffer[i].blockId != -1 && pageArrayBuffer[i].tableName != null) {
+//                pageArrayBuffer[i].isWrited = false;
+//                // write to disk
+//                setBlockToDisk(pageArrayBuffer[i].tableName, pageArrayBuffer[i].type, pageArrayBuffer[i].appendPath, pageArrayBuffer[i].blockId, pageArrayBuffer[i].data);
+//            }
+//        }
         mutex.unlock();
     }
 
@@ -63,6 +71,15 @@ public class PageBuffer {
                     this.pageArrayBuffer[i] = null;
                 }
             }
+        }
+        for (int i = 0; i < this.changedPageSet.size();i++) {
+            Page page = this.changedPageSet.poll();
+            if (page != null && page.tableName != null) {
+                if (page.tableName.equals(tableName)) {
+                    continue;
+                }
+            }
+            this.changedPageSet.add(page);
         }
         mutex.unlock();
     }

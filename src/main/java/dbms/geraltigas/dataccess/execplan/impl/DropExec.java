@@ -50,6 +50,29 @@ public class DropExec implements ExecPlan {
             return "Dont support drop in txn";
         }
         Path path = Paths.get(dataPath + "/tables");
+        Path indexDir = Paths.get(dataPath + "/indexes/" + tableName);
+        if (indexDir.toFile().exists()) {
+            for (File i : Objects.requireNonNull(indexDir.toFile().listFiles())) {
+                long indexHeadId = LockManager.computeId(tableName, DiskManager.AccessType.INDEX, null, 0);
+                lockManager.lockWrite(indexHeadId, threadId);
+                String indexName = i.getName().split("\\[")[0];
+                IndexHeader indexHeader = diskManager.getIndexHeader(tableName, indexName);
+                int pageNum = indexHeader.getIndexDataPageNum();
+                for (int j = 0; j < pageNum; j++) {
+                    long pageId = LockManager.computeId(tableName, DiskManager.AccessType.INDEX, indexName, j+1);
+                    lockManager.lockWrite(pageId, threadId);
+                }
+                boolean succ = i.delete();
+                if (!succ) {
+                    lockManager.unlockAll(threadId);
+                    return "Failed to drop index " + i.getName();
+                }
+                res.add("Index " + i.getName() + " deleted");
+            }
+            indexDir.toFile().delete();
+            res.add("Index directory " + tableName + " deleted");
+        }
+
         if (path.toFile().exists()) {
             Path tablePath = path.resolve(tableName + ".tbl");
             pageBuffer.deleteTable(tableName);
@@ -74,28 +97,8 @@ public class DropExec implements ExecPlan {
                 return String.join(";\n", res);
             }
         }
-        Path indexDir = Paths.get(dataPath + "/indexes/" + tableName);
-        if (indexDir.toFile().exists()) {
-            for (File i : Objects.requireNonNull(indexDir.toFile().listFiles())) {
-                long indexHeadId = LockManager.computeId(tableName, DiskManager.AccessType.INDEX, null, 0);
-                lockManager.lockWrite(indexHeadId, threadId);
-                String indexName = i.getName().split("\\[")[0];
-                IndexHeader indexHeader = diskManager.getIndexHeader(tableName, indexName);
-                int pageNum = indexHeader.getIndexDataPageNum();
-                for (int j = 0; j < pageNum; j++) {
-                    long pageId = LockManager.computeId(tableName, DiskManager.AccessType.INDEX, indexName, j+1);
-                    lockManager.lockWrite(pageId, threadId);
-                }
-                boolean succ = i.delete();
-                if (!succ) {
-                    lockManager.unlockAll(threadId);
-                    return "Failed to drop index " + i.getName();
-                }
-                res.add("Index " + i.getName() + " deleted");
-            }
-            indexDir.toFile().delete();
-            res.add("Index directory " + tableName + " deleted");
-        }
+
+
 
         Path metaPath = Paths.get(dataPath + "/metadata/" + tableName + ".meta");
         if (metaPath.toFile().exists()) {
@@ -108,6 +111,7 @@ public class DropExec implements ExecPlan {
         }
         res.add("Table " + tableName + " dropped");
         lockManager.unlockAll(threadId);
+        pageBuffer.deleteTable(tableName);
         return String.join(";\n", res);
     }
 
