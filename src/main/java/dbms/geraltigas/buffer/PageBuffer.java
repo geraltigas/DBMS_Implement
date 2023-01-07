@@ -3,6 +3,8 @@ package dbms.geraltigas.buffer;
 import dbms.geraltigas.dataccess.DiskManager;
 import dbms.geraltigas.dataccess.ExecuteEngine;
 import dbms.geraltigas.exception.BlockException;
+import dbms.geraltigas.utils.Printer;
+import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -12,6 +14,7 @@ import java.nio.file.Paths;
 import java.util.*;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.ConcurrentSkipListSet;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.locks.ReentrantLock;
 
 import static dbms.geraltigas.utils.Printer.DEBUG;
@@ -23,12 +26,46 @@ public class PageBuffer {
 
     private ReentrantLock mutex = new ReentrantLock();
     private Page[] pageArrayBuffer;
+
+    private ReentrantLock changedSetMutex = new ReentrantLock();
     private Deque<Page> changedPageSet = new ConcurrentLinkedDeque<>();
     @Autowired
     ExecuteEngine executeEngine;
 
+    @Autowired
+    ExecutorService executorService;
+
     public Page[] getPageArrayBuffer() {
         return pageArrayBuffer;
+    }
+
+    @PostConstruct
+    public void init() {
+        executorService.submit(() -> {
+            Printer.print("Starting to data persistence", "DataPersistence");
+            while (true) {
+                changedSetMutex.lock();
+                try {
+                    if (changedPageSet.size() > 0) {
+                        Page page = changedPageSet.poll();
+                        if (page != null) {
+//                            Page now = pageArrayBuffer[getHash]
+                            Page now = pageArrayBuffer[getHashCode(page.tableName,page.type,page.appendPath,page.blockId)];
+                            if (now != null && Objects.equals(now.tableName, page.tableName) && now.type == page.type && Objects.equals(now.appendPath, page.appendPath) && now.blockId == page.blockId) {
+                                now.isWrited = false;
+                            }
+                        }
+                        // write to disk
+                        setBlockToDisk(page.tableName, page.type, page.appendPath, page.blockId, page.data);
+                        Printer.print("[DataPersistence] Write page " + page.tableName + " " + page.type + " " + page.appendPath + " " + page.blockId + " to disk","Info");
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();
+                } finally {
+                    changedSetMutex.unlock();
+                }
+            }
+        });
     }
 
     public void FlushPages(ArrayList<Page> pages) {
@@ -43,13 +80,13 @@ public class PageBuffer {
      public void FlushIntoDisk() {
         mutex.lock();
          DEBUG("Get diskManager Lock");
-        for (int i = 0 ; i < changedPageSet.size();i++) {
-            Page page = changedPageSet.poll();
-            if (page == null) {
-                continue;
-            }
-            setBlockToDisk(page.tableName, page.type, page.appendPath, page.blockId, page.data);
-        }
+//        for (int i = 0 ; i < changedPageSet.size();i++) {
+//            Page page = changedPageSet.poll();
+//            if (page == null) {
+//                continue;
+//            }
+//            setBlockToDisk(page.tableName, page.type, page.appendPath, page.blockId, page.data);
+//        }
 //        // TODO : to be test
 //        for (int i = 0; i < BLOCK_COUNT; i++) {
 //            if (pageArrayBuffer[i] != null && pageArrayBuffer[i].blockId != -1 && pageArrayBuffer[i].tableName != null) {
@@ -183,13 +220,17 @@ public class PageBuffer {
         DEBUG("table name: " + tableName + " type: " + type + " appendPath: " + appendPath + " blockId: " + blockId + " hashcode: " + hashCode);
         if (pageArrayBuffer[hashCode] == null) {
             DEBUG("page is null");
+            changedSetMutex.lock();
             for (Page page : changedPageSet) {
                 if (page.tableName.equals(tableName) && page.type == type && Objects.equals(page.appendPath, appendPath) && page.blockId == blockId) {
                     pageArrayBuffer[hashCode] = page;
                     mutex.unlock();
+                    changedPageSet.remove(page);
+                    changedSetMutex.unlock();
                     return page;
                 }
             }
+            changedSetMutex.unlock();
             try {
                 pageArrayBuffer[hashCode] = new Page(tableName,type, appendPath ,blockId, getBlockFromDisk(tableName, type, appendPath, blockId));
             } catch (BlockException e) {
@@ -200,6 +241,7 @@ public class PageBuffer {
         if (page.blockId != blockId || !Objects.equals(page.tableName, tableName) || page.type != type || !Objects.equals(page.appendPath, appendPath)) {
             if (page.isWrited) {
                 DEBUG("page is writed");
+                changedSetMutex.lock();
                 changedPageSet.add(page);
                 DEBUG("add page to changedPageSet");
                 for (Page temp : changedPageSet) {
@@ -208,10 +250,12 @@ public class PageBuffer {
                     if (temp.tableName.equals(tableName) && temp.type == type && Objects.equals(temp.appendPath, appendPath) && temp.blockId == blockId) {
                         DEBUG("page is in changedPageSet");
                         pageArrayBuffer[hashCode] = temp;
+                        changedSetMutex.unlock();
                         mutex.unlock();
                         return temp;
                     }
                 }
+                changedSetMutex.unlock();
                 DEBUG("page is not in changedPageSet");
                 Page temp = null;
                 try {
@@ -223,14 +267,17 @@ public class PageBuffer {
                 mutex.unlock();
                 return temp;
             }else {
+                changedSetMutex.lock();
                 DEBUG("page is not writed");
                 for (Page temp : changedPageSet) {
                     if (temp.tableName.equals(tableName) && temp.type == type && Objects.equals(temp.appendPath, appendPath) && temp.blockId == blockId) {
                         pageArrayBuffer[hashCode] = temp;
+                        changedSetMutex.unlock();
                         mutex.unlock();
                         return temp;
                     }
                 }
+                changedSetMutex.unlock();
                 Page temp = null;
                 try {
                     temp = new Page(tableName,type,appendPath,blockId, getBlockFromDisk(tableName,type,appendPath, blockId));
@@ -254,12 +301,15 @@ public class PageBuffer {
         }else {
             if (pageArrayBuffer[hashCode].blockId != blockId || !Objects.equals(pageArrayBuffer[hashCode].tableName, tableName) || pageArrayBuffer[hashCode].type != type || !Objects.equals(pageArrayBuffer[hashCode].appendPath, appendPath)) {
                 if (pageArrayBuffer[hashCode].isWrited) {
+                    changedSetMutex.lock();
                     changedPageSet.add(pageArrayBuffer[hashCode]);
+                    changedSetMutex.unlock();
                 }
                 pageArrayBuffer[hashCode] = page;
             }else {
                 pageArrayBuffer[hashCode] = page;
             }
+            changedPageSet.add(page);
         }
     }
 

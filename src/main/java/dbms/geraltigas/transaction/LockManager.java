@@ -56,7 +56,8 @@ public class LockManager { // add read or write lock to every page
                     // wake up
                     Printer.print(""+executeEngine.transactions.size(),"info");
                     Printer.print("Wake threadId" + transactionId,"info");
-                    Printer.print("existExecutor" + executeEngine.existExecutor(transactionId),"info");if (executeEngine.existExecutor(transactionId)) {
+                    Printer.print("existExecutor" + executeEngine.existExecutor(transactionId),"info");
+                    if (executeEngine.existExecutor(transactionId)) {
                         Printer.print("Page " + pageId + " has been lock write by other transaction, thread wake up",transactionId);
                         lockRead(pageId, transactionId);
                     } else {

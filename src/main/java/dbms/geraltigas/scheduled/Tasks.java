@@ -26,25 +26,25 @@ public class Tasks {
 
     public AtomicBoolean openClearHoles = new AtomicBoolean(true);
 
-    @Scheduled(fixedRate = 1000 * 60)
-    private void flush() {
-        System.out.println("[DataPersistence] Starting to flush written page into disk");
-        try {
-            if (!executeEngine.hasTxn()) {
-                executeEngine.setNormalStop(true);
-                System.out.println("[DataPersistence] NormalExecutor stopped");
-                Thread.sleep(1000);
-                pageBuffer.FlushIntoDisk();
-                executeEngine.setNormalStop(false);
-            }else{
-                System.out.println("[DataPersistence] There are still transactions running, flush postponed");
-            }
-
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-        System.out.println("[DataPersistence] Flush finished");
-    }
+//    @Scheduled(fixedRate = 1000 * 5)
+//    private void flush() {
+//        System.out.println("[DataPersistence] Starting to flush written page into disk");
+//        try {
+//            if (!executeEngine.hasTxn()) {
+//                executeEngine.setNormalStop(true);
+//                System.out.println("[DataPersistence] NormalExecutor stopped");
+//                Thread.sleep(1000);
+//                pageBuffer.FlushIntoDisk();
+//                executeEngine.setNormalStop(false);
+//            }else{
+//                System.out.println("[DataPersistence] There are still transactions running, flush postponed");
+//            }
+//
+//        } catch (Exception e) {
+//            e.printStackTrace();
+//        }
+//        System.out.println("[DataPersistence] Flush finished");
+//    }
 
     @Scheduled(fixedRate = 1000 * 63)
     public void deadLockDetect() {
